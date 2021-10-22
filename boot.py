@@ -28,9 +28,9 @@ def cmd_boot(type):
             if not os.path.exists(path):
                 urllib.request.urlretrieve(f'https://github.com/dreemurrs-embedded/Jumpdrive/releases/download/{JUMPDRIVE_VERSION}/{file}', path)
         elif type == LK2ND:
-            path = dump_lk2nd(image_name)
+            path = dump_lk2nd(os.path.join('/images', image_name))
         elif type == BOOTIMG:
-            path = dump_bootimg(image_name)
+            path = dump_bootimg(os.path.join('/images', image_name))
         else:
             raise Exception(f'Unknown boot image type {type}')
         fastboot_erase_dtbo()
