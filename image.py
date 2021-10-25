@@ -87,7 +87,7 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
 
 
 def get_device_and_flavour(profile: str = None) -> tuple[str, str]:
-    #config.enforce_config_loaded()
+    config.enforce_config_loaded()
     profile = config.get_profile(profile)
     if not profile['device']:
         raise Exception("Please set the device using 'kupferbootstrap config init ...'")
@@ -261,7 +261,7 @@ def cmd_build():
     profile = config.get_profile()
     device, flavour = get_device_and_flavour()
     post_cmds = FLAVOURS[flavour].get('post_cmds', [])
-    image_name = os.path.join('/images', get_image_name(device, flavour))
+    image_name = os.path.join(config.get_path('images'), get_image_name(device, flavour))
 
     # TODO: PARSE DEVICE ARCH AND SECTOR SIZE
     arch = 'aarch64'
@@ -357,7 +357,7 @@ def cmd_build():
 @cmd_image.command(name='inspect')
 def cmd_inspect():
     device, flavour = get_device_and_flavour()
-    image_name = get_image_name(device, flavour)
+    image_name = os.path.join(config.get_path('images'), get_image_name(device, flavour))
 
     # TODO: PARSE DEVICE SECTOR SIZE
     sector_size = 4096
