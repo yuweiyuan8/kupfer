@@ -176,7 +176,7 @@ SRCEXT='.src.tar.gz'
         includes = f'-I/usr/{hostspec}/usr/include -I/{chroot}/usr/include'
         libs = f'-L/usr/{hostspec}/lib -L/{chroot}/usr/lib'
         conf += f'''
-
+export CARGO_BUILD_TARGET="{GCC_HOSTSPECS[arch][arch]}"
 export ARCH="{COMPILE_ARCHES[arch]}"
 export CROSS_COMPILE="{hostspec}-"
 export CC="{hostspec}-gcc {includes} {libs}"
@@ -187,3 +187,33 @@ export LDFLAGS="$LDFLAGS,-L/usr/{hostspec}/lib,-L/{chroot}/usr/lib,-rpath-link,/
 '''
 
     return conf
+
+
+def generate_meson_cross_conf(arch: Arch):
+    compile_arch = COMPILE_ARCHES[arch]
+    hostspec = GCC_HOSTSPECS[config.runtime['arch']][arch]
+    rust_hostspec = GCC_HOSTSPECS[arch][arch]
+    return f"""
+[binaries]
+c = '/usr/bin/{hostspec}-gcc'
+cpp = '/usr/bin/{hostspec}-g++'
+ar = '/usr/bin/{hostspec}-ar'
+strip = '/usr/bin/{hostspec}-strip'
+objcopy = '/usr/bin/{hostspec}-objcopy'
+ld= '/usr/bin/{hostspec}-ld'
+rust = ['rustc', '--target', '{rust_hostspec}']
+pkgconfig = ['/usr/bin/pkg-config', '--personality', '{hostspec}']
+
+[properties]
+#pkg_config_libdir = '/chroot/build_{arch}/lib/pkgconfig'
+sys_root = '/chroot/build_{arch}'
+
+[built-in options]
+pkg_config_path = '/chroot/build_{arch}/lib/pkgconfig'
+
+[host_machine]
+system = 'linux'
+cpu_family = '{arch}'
+cpu = '{compile_arch}'
+endian = 'little'
+"""

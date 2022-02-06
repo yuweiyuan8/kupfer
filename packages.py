@@ -42,8 +42,11 @@ def get_makepkg_env():
     }
 
 
-def get_makepkg_cross_env():
-    return get_makepkg_env() | {'PACMAN': os.path.join(config.runtime['script_source_dir'], 'local/bin/pacman_aarch64')}
+def get_makepkg_cross_env(arch: Arch):
+    return get_makepkg_env() | {
+        'CARGO_BUILD_TARGET': GCC_HOSTSPECS[arch][arch],
+        #'PACMAN': os.path.join(config.runtime['script_source_dir'], 'local/bin/pacman_aarch64'),
+    }
 
 
 class Package:
@@ -479,19 +482,37 @@ def build_package(
         logging.info(f'Cross-compiling {package.path}')
         build_root = native_chroot
         makepkg_compile_opts += ['--nodeps']
-        #env = get_makepkg_cross_env()
-        env = deepcopy(get_makepkg_env())
+        env = deepcopy(get_makepkg_cross_env(arch))
+        env |= {
+            'KUPFER_CROSS_TARGET': arch,
+            'PATH': f"/usr/lib/meson/cross/bin:{env['PATH']}",
+        }
         if enable_ccache:
             env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
         logging.info('Setting up dependencies for cross-compilation')
+
+        dependencies = package.depends
+        if 'rust' in dependencies:
+            rust_target = GCC_HOSTSPECS[arch][arch]
+            logging.info(f'installing rustup and {rust_target} target')
+            native_chroot.run_cmd("\
+                (yes | pacman -S rustup) && \
+                rustup default stable && \
+                rustup target add aarch64-unknown-linux-gnu \
+            ")
+            dependencies.remove('rust')
         # include crossdirect for ccache symlinks and qemu-user
-        results = native_chroot.try_install_packages(package.depends + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
+        crosstoolchain = [(GCC_HOSTSPECS[config.runtime['arch']][arch] + f'-{bin}') for bin in [
+            'gcc',
+        ]]
+        results = native_chroot.try_install_packages(dependencies + CROSSDIRECT_PKGS + crosstoolchain)
         if results['crossdirect'].returncode != 0:
             raise Exception('Unable to install crossdirect')
         # mount foreign arch chroot inside native chroot
         chroot_relative = os.path.join(CHROOT_PATHS['chroots'], target_chroot.name)
         makepkg_path_absolute = native_chroot.write_makepkg_conf(target_arch=arch, cross_chroot_relative=chroot_relative, cross=True)
         makepkg_conf_path = os.path.join('etc', os.path.basename(makepkg_path_absolute))
+        native_chroot.write_meson_cross_conf(arch)
         native_chroot.mount_crosscompile(target_chroot)
     else:
         logging.info(f'Host-compiling {package.path}')

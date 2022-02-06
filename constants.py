@@ -130,7 +130,8 @@ CFLAGS_ARCHES: dict[Arch, list[str]] = {
 }
 
 QEMU_BINFMT_PKGS = ['qemu-user-static-bin', 'binfmt-qemu-static']
-CROSSDIRECT_PKGS = ['crossdirect'] + QEMU_BINFMT_PKGS
+# TODO: split crossdirect and crosscompile
+CROSSDIRECT_PKGS = ['crossdirect'] + QEMU_BINFMT_PKGS + ['meson-cross-wrapper']
 
 SSH_DEFAULT_HOST = '172.16.42.1'
 SSH_DEFAULT_PORT = 22

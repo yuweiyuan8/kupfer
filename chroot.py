@@ -12,7 +12,7 @@ from shlex import quote as shell_quote
 from utils import mount, umount, check_findmnt, log_or_exception
 from wrapper import enforce_wrap
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, BASE_PACKAGES, CHROOT_PATHS
-from generator import generate_makepkg_conf
+from generator import generate_makepkg_conf, generate_meson_cross_conf
 
 BIND_BUILD_DIRS = 'BINDBUILDDIRS'
 BASE_CHROOT_PREFIX = 'base_'
@@ -543,6 +543,14 @@ class Chroot:
         os.makedirs(self.get_path('/etc'), exist_ok=True)
         conf_text = get_base_distro(self.arch).get_pacman_conf(self.extra_repos)
         with open(self.get_path('etc/pacman.conf'), 'w') as file:
+            file.write(conf_text)
+
+    def write_meson_cross_conf(self, target_arch: Arch):
+        dir_path = self.get_path('/usr/lib/meson/cross')
+        file_path = os.path.join(dir_path, f'cross_{target_arch}.txt')
+        os.makedirs(dir_path, exist_ok=True)
+        conf_text = generate_meson_cross_conf(target_arch)
+        with open(file_path, 'w') as file:
             file.write(conf_text)
 
 
