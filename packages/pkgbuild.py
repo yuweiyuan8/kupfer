@@ -1,19 +1,26 @@
-from copy import deepcopy
+import logging
 import os
 import subprocess
 
-from chroot import Chroot
-from constants import CHROOT_PATHS, MAKEPKG_CMD
+from copy import deepcopy
+from typing import Any, Iterable, Optional
 
+from chroot.build import BuildChroot
+from config import config
+from constants import Arch, CHROOT_PATHS, MAKEPKG_CMD, CROSSDIRECT_PKGS, GCC_HOSTSPECS
 from distro.package import PackageInfo
+from distro.repo import Repo
+
+from .helpers import setup_build_chroot, get_makepkg_env
 
 
-class Pkgbuild(PackageInfo):
+class Pkgbuild:
+    name: str
     depends: list[str]
     provides: list[str]
     replaces: list[str]
     local_depends: list[str]
-    repo = ''
+    repo: Optional[Repo] = None
     mode = ''
     path = ''
     pkgver = ''
@@ -22,11 +29,13 @@ class Pkgbuild(PackageInfo):
     def __init__(
         self,
         relative_path: str,
+        repo: Repo,
         depends: list[str] = [],
         provides: list[str] = [],
         replaces: list[str] = [],
     ) -> None:
         self.version = ''
+        self.repo = repo
         self.path = relative_path
         self.depends = deepcopy(depends)
         self.provides = deepcopy(provides)
@@ -38,6 +47,122 @@ class Pkgbuild(PackageInfo):
     def names(self):
         return list(set([self.name] + self.provides + self.replaces))
 
+    def get_pkg_filenames(self, arch: Arch, native_chroot: BuildChroot) -> Iterable[str]:
+        config_path = '/' + native_chroot.write_makepkg_conf(
+            target_arch=arch,
+            cross_chroot_relative=os.path.join('chroot', arch),
+            cross=True,
+        )
+
+        cmd = ['cd', os.path.join(CHROOT_PATHS['pkgbuilds'], self.path), '&&'] + MAKEPKG_CMD + [
+            '--config',
+            config_path,
+            '--nobuild',
+            '--noprepare',
+            '--skippgpcheck',
+            '--packagelist',
+        ]
+        result: Any = native_chroot.run_cmd(
+            cmd,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise Exception(f'Failed to get package list for {self.path}:' + '\n' + result.stdout.decode() + '\n' + result.stderr.decode())
+
+        return result.stdout.decode('utf-8').split('\n')
+
+    def setup_sources(self, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf'):
+        makepkg_setup_args = [
+            '--config',
+            makepkg_conf_path,
+            '--nobuild',
+            '--holdver',
+            '--nodeps',
+            '--skippgpcheck',
+        ]
+
+        logging.info(f'Setting up sources for {self.path} in {chroot.name}')
+        result = chroot.run_cmd(MAKEPKG_CMD + makepkg_setup_args, cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], self.path))
+        assert isinstance(result, subprocess.CompletedProcess)
+        if result.returncode != 0:
+            raise Exception(f'Failed to check sources for {self.path}')
+
+    def build(
+        self,
+        arch: Arch,
+        enable_crosscompile: bool = True,
+        enable_crossdirect: bool = True,
+        enable_ccache: bool = True,
+        clean_chroot: bool = False,
+        repo_dir: str = None,
+    ):
+        makepkg_compile_opts = ['--holdver']
+        makepkg_conf_path = 'etc/makepkg.conf'
+        repo_dir = repo_dir or config.get_path('pkgbuilds')
+        foreign_arch = config.runtime['arch'] != arch
+        deps = (list(set(self.depends) - set(self.names())))
+        target_chroot = setup_build_chroot(
+            arch=arch,
+            extra_packages=deps,
+            clean_chroot=clean_chroot,
+        )
+        native_chroot = target_chroot if not foreign_arch else setup_build_chroot(
+            arch=config.runtime['arch'],
+            extra_packages=['base-devel'] + CROSSDIRECT_PKGS,
+            clean_chroot=clean_chroot,
+        )
+        cross = foreign_arch and self.mode == 'cross' and enable_crosscompile
+
+        target_chroot.initialize()
+
+        if cross:
+            logging.info(f'Cross-compiling {self.path}')
+            build_root = native_chroot
+            makepkg_compile_opts += ['--nodeps']
+            env = deepcopy(get_makepkg_env())
+            if enable_ccache:
+                env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
+            logging.info('Setting up dependencies for cross-compilation')
+            # include crossdirect for ccache symlinks and qemu-user
+            results = native_chroot.try_install_packages(self.depends + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
+            res_crossdirect = results['crossdirect']
+            assert isinstance(res_crossdirect, subprocess.CompletedProcess)
+            if res_crossdirect.returncode != 0:
+                raise Exception('Unable to install crossdirect')
+            # mount foreign arch chroot inside native chroot
+            chroot_relative = os.path.join(CHROOT_PATHS['chroots'], target_chroot.name)
+            makepkg_path_absolute = native_chroot.write_makepkg_conf(target_arch=arch, cross_chroot_relative=chroot_relative, cross=True)
+            makepkg_conf_path = os.path.join('etc', os.path.basename(makepkg_path_absolute))
+            native_chroot.mount_crosscompile(target_chroot)
+        else:
+            logging.info(f'Host-compiling {self.path}')
+            build_root = target_chroot
+            makepkg_compile_opts += ['--syncdeps']
+            env = deepcopy(get_makepkg_env())
+            if foreign_arch and enable_crossdirect and self.name not in CROSSDIRECT_PKGS:
+                env['PATH'] = f"/native/usr/lib/crossdirect/{arch}:{env['PATH']}"
+                target_chroot.mount_crossdirect(native_chroot)
+            else:
+                if enable_ccache:
+                    logging.debug('ccache enabled')
+                    env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
+                    deps += ['ccache']
+                logging.debug(('Building for native arch. ' if not foreign_arch else '') + 'Skipping crossdirect.')
+            dep_install = target_chroot.try_install_packages(deps, allow_fail=False)
+            failed_deps = [name for name, res in dep_install.items() if res.returncode != 0]  # type: ignore[union-attr]
+            if failed_deps:
+                raise Exception(f'Dependencies failed to install: {failed_deps}')
+
+        makepkg_conf_absolute = os.path.join('/', makepkg_conf_path)
+        self.setup_sources(build_root, makepkg_conf_path=makepkg_conf_absolute)
+
+        build_cmd = f'makepkg --config {makepkg_conf_absolute} --skippgpcheck --needed --noconfirm --ignorearch {" ".join(makepkg_compile_opts)}'
+        logging.debug(f'Building: Running {build_cmd}')
+        result = build_root.run_cmd(build_cmd, inner_env=env, cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], self.path))
+        assert isinstance(result, subprocess.CompletedProcess)
+        if result.returncode != 0:
+            raise Exception(f'Failed to compile package {self.path}')
+
 
 class Pkgbase(Pkgbuild):
     subpackages: list[Pkgbuild]
@@ -47,7 +172,7 @@ class Pkgbase(Pkgbuild):
         super().__init__(relative_path, **args)
 
 
-def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> list[Pkgbuild]:
+def parse_pkgbuild(relative_pkg_dir: str, native_chroot: BuildChroot) -> list[Pkgbuild]:
     mode = None
     with open(os.path.join(native_chroot.get_path(CHROOT_PATHS['pkgbuilds']), relative_pkg_dir, 'PKGBUILD'), 'r') as file:
         for line in file.read().split('\n'):
@@ -60,7 +185,7 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> list[Pkgbuil
 
     base_package = Pkgbase(relative_pkg_dir)
     base_package.mode = mode
-    base_package.repo = relative_pkg_dir.split('/')[0]
+    #base_package.repo = relative_pkg_dir.split('/')[0]
     srcinfo = native_chroot.run_cmd(
         MAKEPKG_CMD + ['--printsrcinfo'],
         cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], base_package.path),

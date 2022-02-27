@@ -7,7 +7,7 @@ import urllib.request
 
 from config import config
 
-from .package import PackageInfo
+from .package import PackageInfo, parse_package_desc
 
 
 def resolve_url(url_template, repo_name: str, arch: str):
@@ -20,18 +20,24 @@ def resolve_url(url_template, repo_name: str, arch: str):
 class RepoInfo:
     options: dict[str, str] = {}
     url_template: str
+    packages: dict[str, PackageInfo]
+    remote: bool
 
     def __init__(self, url_template: str, options: dict[str, str] = {}):
         self.url_template = url_template
-        self.options.update(options)
+        self.options = deepcopy(options)
+        self.remote = not url_template.startswith('file://')
+
+    def acquire(self, package: PackageInfo):
+        if package not in self.packages.values():
+            raise NotImplementedError(f'Package {package} did not come from our repo')
+        package.acquire()
 
 
 class Repo(RepoInfo):
     name: str
     resolved_url: str
     arch: str
-    packages: dict[str, PackageInfo]
-    remote: bool
     scanned: bool = False
 
     def scan(self):
@@ -52,7 +58,7 @@ class Repo(RepoInfo):
             for node in index.getmembers():
                 if os.path.basename(node.name) == 'desc':
                     logging.debug(f'Parsing desc file for {os.path.dirname(node.name)}')
-                    pkg = PackageInfo.parse_desc(index.extractfile(node).read().decode(), self.resolved_url)
+                    pkg = parse_package_desc(index.extractfile(node).read().decode(), self.resolved_url)
                     self.packages[pkg.name] = pkg
 
         self.scanned = True
@@ -62,7 +68,8 @@ class Repo(RepoInfo):
         self.name = name
         self.url_template = url_template
         self.arch = arch
-        self.options = deepcopy(options)
+
+        super(self, url_template=url_template, options=options)
         if scan:
             self.scan()
 

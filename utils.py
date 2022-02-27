@@ -1,6 +1,7 @@
 import atexit
 import logging
 import subprocess
+from hashlib import md5
 from shutil import which
 from typing import Optional, Union, Sequence
 
@@ -68,3 +69,8 @@ def log_or_exception(raise_exception: bool, msg: str, exc_class=Exception, log_l
         raise exc_class(msg)
     else:
         logging.log(log_level, msg)
+
+
+def md5sum_file(file_path: str) -> str:
+    with open(file_path, 'rb') as file:
+        return md5(file.read()).hexdigest()

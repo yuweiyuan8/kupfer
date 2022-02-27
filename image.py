@@ -13,7 +13,7 @@ from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
-from packages import build_enable_qemu_binfmt, discover_packages, build_packages
+from packages.local_repo import get_repo, LocalRepo
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
 
@@ -368,15 +368,16 @@ def cmd_build(profile_name: str = None, build_pkgs: bool = True, block_target: s
     sector_size = 4096
     rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
 
-    build_enable_qemu_binfmt(arch)
+    repo = get_repo()
+    repo.init(arch)
+    repo.build_enable_qemu_binfmt(arch)
 
     packages_dir = config.get_package_dir(arch)
     use_local_repos = os.path.exists(os.path.join(packages_dir, 'main'))
     packages = BASE_PACKAGES + DEVICES[device] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
 
     if build_pkgs:
-        repo = discover_packages()
-        build_packages(repo, [p for name, p in repo.items() if name in packages], arch)
+        repo.build_packages([p for name, p in repo.pkgbuilds.pkgbuilds.items() if name in packages], arch)
 
     image_path = block_target or get_image_path(device, flavour)
 
@@ -450,7 +451,7 @@ def cmd_inspect(profile: str = None, shell: bool = False):
         chroot.activate()
         if arch != config.runtime['arch']:
             logging.info('Installing requisites for foreign-arch shell')
-            build_enable_qemu_binfmt(arch)
+            get_repo().build_enable_qemu_binfmt(arch)
         logging.info('Starting inspection shell')
         chroot.run_cmd('/bin/bash')
     else:
