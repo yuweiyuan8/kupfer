@@ -3,6 +3,7 @@ import os
 import subprocess
 
 from copy import deepcopy
+from tkinter import Pack
 from typing import Any, Iterable, Optional
 
 from chroot.build import BuildChroot
@@ -46,6 +47,10 @@ class Pkgbuild:
 
     def names(self):
         return list(set([self.name] + self.provides + self.replaces))
+
+    def getPackageInfo(self, arch: Arch, ext='zst'):
+        assert self.name and self.version and self.pkgver and self.pkgrel
+        return PackageInfo(name=self.name, version=self.version, arch=arch)
 
     def get_pkg_filenames(self, arch: Arch, native_chroot: BuildChroot) -> Iterable[str]:
         config_path = '/' + native_chroot.write_makepkg_conf(

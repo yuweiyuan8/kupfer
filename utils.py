@@ -1,8 +1,11 @@
 import atexit
 import logging
+import os
 import subprocess
 from hashlib import md5
+import urllib.request
 from shutil import which
+from tempfile import mkstemp
 from typing import Optional, Union, Sequence
 
 
@@ -74,3 +77,17 @@ def log_or_exception(raise_exception: bool, msg: str, exc_class=Exception, log_l
 def md5sum_file(file_path: str) -> str:
     with open(file_path, 'rb') as file:
         return md5(file.read()).hexdigest()
+
+
+def download_file(file_url: str, destination_file: Optional[str] = None):
+    fd: Union[int, str]
+    path: str
+    with urllib.request.urlopen(file_url) as request:
+        if destination_file:
+            fd, path = destination_file, destination_file
+            os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+        else:
+            fd, path = mkstemp()
+        with open(fd, 'wb') as writable:
+            writable.write(request.read())
+    return path

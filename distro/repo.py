@@ -1,11 +1,11 @@
 from copy import deepcopy
+from io import BufferedReader
 import logging
 import os
 import tarfile
-import tempfile
-import urllib.request
 
 from config import config
+from utils import download_file
 
 from .package import PackageInfo, parse_package_desc
 
@@ -28,10 +28,13 @@ class RepoInfo:
         self.options = deepcopy(options)
         self.remote = not url_template.startswith('file://')
 
-    def acquire(self, package: PackageInfo):
+    def acquire_package(self, package: PackageInfo) -> str:
         if package not in self.packages.values():
             raise NotImplementedError(f'Package {package} did not come from our repo')
-        package.acquire()
+        return package.acquire()
+
+    def scan(self, refresh: bool = False):
+        pass
 
 
 class Repo(RepoInfo):
@@ -40,38 +43,42 @@ class Repo(RepoInfo):
     arch: str
     scanned: bool = False
 
-    def scan(self):
-        self.resolved_url = resolve_url(self.url_template, repo_name=self.name, arch=self.arch)
-        self.remote = not self.resolved_url.startswith('file://')
-        uri = f'{self.resolved_url}/{self.name}.db'
-        path = ''
-        if self.remote:
-            logging.debug(f'Downloading repo file from {uri}')
-            with urllib.request.urlopen(uri) as request:
-                fd, path = tempfile.mkstemp()
-                with open(fd, 'wb') as writable:
-                    writable.write(request.read())
-        else:
-            path = uri.split('file://')[1]
-        logging.debug(f'Parsing repo file at {path}')
-        with tarfile.open(path) as index:
-            for node in index.getmembers():
-                if os.path.basename(node.name) == 'desc':
-                    logging.debug(f'Parsing desc file for {os.path.dirname(node.name)}')
-                    pkg = parse_package_desc(index.extractfile(node).read().decode(), self.resolved_url)
-                    self.packages[pkg.name] = pkg
-
-        self.scanned = True
-
-    def __init__(self, name: str, url_template: str, arch: str, options={}, scan=False):
+    def __init__(self, name: str, url_template: str, arch: str, options: dict[str, str] = {}, scan=False):
         self.packages = {}
         self.name = name
         self.url_template = url_template
         self.arch = arch
 
-        super(self, url_template=url_template, options=options)
+        super().__init__(url_template=url_template, options=options)
         if scan:
             self.scan()
+
+    def get_package_from_desc(self, desc_str: str) -> PackageInfo:
+        return parse_package_desc(desc_str=desc_str, arch=self.arch, resolved_url=self.resolved_url)
+
+    def scan(self, refresh: bool = False):
+        if refresh or not self.scanned:
+            self.resolved_url = resolve_url(self.url_template, repo_name=self.name, arch=self.arch)
+            self.remote = not self.resolved_url.startswith('file://')
+            uri = f'{self.resolved_url}/{self.name}.db'
+            path = ''
+            if self.remote:
+                logging.debug(f'Downloading repo file from {uri}')
+                path = download_file(uri)
+            else:
+                path = uri.split('file://')[1]
+            logging.debug(f'Parsing repo file at {path}')
+            with tarfile.open(path) as index:
+                for node in index.getmembers():
+                    if os.path.basename(node.name) == 'desc':
+                        logging.debug(f'Parsing desc file for {os.path.dirname(node.name)}')
+                        with index.extractfile(node) as reader:  # type: ignore
+                            assert isinstance(reader, BufferedReader)
+                            desc = reader.read().decode()
+                        pkg = self.get_package_from_desc(desc)
+                        self.packages[pkg.name] = pkg
+
+        self.scanned = True
 
     def config_snippet(self) -> str:
         options = {'Server': self.url_template} | self.options

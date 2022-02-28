@@ -60,7 +60,6 @@ class SourceRepo:
             repo_url = config.file['pkgbuilds']['git_repo']
             branch = config.file['pkgbuilds']['git_branch']
             self.git_get_pkgbuilds(
-                pkgbuilds_dir,
                 repo_url,
                 branch,
                 interactive=interactive,
@@ -299,6 +298,9 @@ class SourceRepo:
             enable_ccache=enable_ccache,
             clean_chroot=clean_chroot,
         )
+
+
+_src_repo: SourceRepo
 
 
 def get_repo():

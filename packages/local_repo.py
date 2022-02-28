@@ -122,14 +122,15 @@ class LocalRepo:
 
         missing = False
         for line in package.get_pkg_filenames(arch, native_chroot):
-            if line != "":
-                assert package.repo and package.repo.name
-                file = os.path.join(self.repo_dir, arch, package.repo.name, os.path.basename(line))
-                logging.debug(f'Checking if {file} is built')
-                if os.path.exists(file):
-                    self.add_file_to_repo(file, repo_name=package.repo.name, arch=arch)
-                else:
-                    missing = True
+            if not line:
+                continue
+            assert package.repo and package.repo.name
+            file = os.path.join(self.repo_dir, arch, package.repo.name, os.path.basename(line))
+            logging.debug(f'Checking if {file} is built')
+            if os.path.exists(file):
+                self.add_file_to_repo(file, repo_name=package.repo.name, arch=arch)
+            else:
+                missing = True
 
         return not missing
 
