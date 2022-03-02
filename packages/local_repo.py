@@ -19,7 +19,7 @@ from .source_repo import SourceRepo, get_repo as get_source_repo
 from .helpers import setup_build_chroot
 
 
-class LocalRepo:
+class LocalRepo(Repo):
     initialized: bool = False
     pkgbuilds: SourceRepo
     repo_dir: str
@@ -54,6 +54,11 @@ class LocalRepo:
                                 if result.returncode != 0:
                                     raise Exception('Failed to create prebuilt repos')
         self.initialized = True
+
+    def scan(self, refresh: bool = False):
+        if not self.initialized:
+            self.init()
+        super().scan(refresh=refresh)
 
     def add_file_to_repo(self, file_path: str, repo_name: str, arch: Arch):
         repo_dir = os.path.join(self.repo_dir, arch, repo_name)
@@ -176,33 +181,35 @@ class LocalRepo:
             clean_chroot=clean_chroot,
         )
 
-    def build_enable_qemu_binfmt(self, arch: Arch):
-        if arch not in ARCHES:
-            raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
-        enforce_wrap()
-        self.pkgbuilds.discover_packages()
-        native = config.runtime['arch']
-        # build qemu-user, binfmt, crossdirect
-        chroot = setup_build_chroot(native)
-        logging.info('Installing qemu-user (building if necessary)')
-        qemu_pkgs = [self.pkgbuilds.pkgbuilds[pkg] for pkg in QEMU_BINFMT_PKGS]
-        self.build_packages(
-            qemu_pkgs,
-            native,
-            enable_crosscompile=False,
-            enable_crossdirect=False,
-            enable_ccache=False,
-        )
-        subprocess.run(['pacman', '-Syy', '--noconfirm', '--needed', '--config', os.path.join(chroot.path, 'etc/pacman.conf')] + QEMU_BINFMT_PKGS)
-        if arch != native:
-            binfmt_register(arch)
+
+_local_repos = dict[Arch, LocalRepo]()
 
 
-_local_repo: LocalRepo
+def get_local_repo(arch: Arch) -> LocalRepo:
+    global _local_repos
+    if arch not in _local_repos or not _local_repos[arch]:
+        _local_repos[arch] = LocalRepo()
+    return _local_repos[arch]
 
 
-def get_repo() -> LocalRepo:
-    global _local_repo
-    if not _local_repo:
-        _local_repo = LocalRepo()
-    return _local_repo
+def build_enable_qemu_binfmt(foreign_arch: Arch):
+    if foreign_arch not in ARCHES:
+        raise Exception(f'Unknown architecture "{foreign_arch}". Choices: {", ".join(ARCHES)}')
+    enforce_wrap()
+    native = config.runtime['arch']
+    native_repo = get_local_repo(native)
+    native_repo.init()
+    # build qemu-user, binfmt, crossdirect
+    chroot = setup_build_chroot(native)
+    logging.info('Installing qemu-user (building if necessary)')
+    qemu_pkgs = [native_repo.pkgbuilds.pkgbuilds[pkg] for pkg in QEMU_BINFMT_PKGS]
+    native_repo.build_packages(
+        qemu_pkgs,
+        native,
+        enable_crosscompile=False,
+        enable_crossdirect=False,
+        enable_ccache=False,
+    )
+    subprocess.run(['pacman', '-Syy', '--noconfirm', '--needed', '--config', os.path.join(chroot.path, 'etc/pacman.conf')] + QEMU_BINFMT_PKGS)
+    if foreign_arch != native:
+        binfmt_register(foreign_arch)

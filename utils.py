@@ -79,7 +79,7 @@ def md5sum_file(file_path: str) -> str:
         return md5(file.read()).hexdigest()
 
 
-def download_file(file_url: str, destination_file: Optional[str] = None):
+def download_file(file_url: str, destination_file: Optional[str] = None) -> str:
     fd: Union[int, str]
     path: str
     with urllib.request.urlopen(file_url) as request:

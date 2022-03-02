@@ -1,8 +1,15 @@
+from enum import IntEnum
 from typing import Optional, NamedTuple, TypeVar, Sequence, Union
 
 # free-form python port of https://gitlab.archlinux.org/pacman/pacman/-/blob/master/lib/libalpm/version.c
 
 Version = Union[str, int]
+
+
+class VerComp(IntEnum):
+    RIGHT_NEWER = -1
+    EQUAL = 0
+    RIGHT_OLDER = 1
 
 
 class EVR(NamedTuple):
@@ -40,18 +47,18 @@ def parseEVR(input: str) -> EVR:
     return EVR(epoch, version, release, subrelease)
 
 
-def int_compare(a: int, b: int) -> int:
+def int_compare(a: int, b: int) -> VerComp:
     if b > a:
-        return -1
+        return VerComp.RIGHT_NEWER
     if a > b:
-        return 1
-    return 0
+        return VerComp.RIGHT_OLDER
+    return VerComp.EQUAL
 
 
-def rpm_version_compare(a: Version, b: Version) -> int:
+def rpm_version_compare(a: Version, b: Version) -> VerComp:
     """return -1: `b` is newer than `a`, 0: `a == b`, +1: `a` is newer than `b`"""
     if a == b:
-        return 0
+        return VerComp.EQUAL
 
     if isinstance(a, int) and isinstance(b, int):
         return int_compare(a, b)
@@ -87,7 +94,7 @@ def rpm_version_compare(a: Version, b: Version) -> int:
 
         # If the separator lengths were different, we are also finished
         if (one - offset1) != (two - offset2):
-            return -1 if (one - offset1) < (two - offset2) else 1
+            return VerComp.RIGHT_NEWER if (one - offset1) < (two - offset2) else VerComp.RIGHT_OLDER
 
         offset1 = one
         offset2 = two
@@ -118,7 +125,7 @@ def rpm_version_compare(a: Version, b: Version) -> int:
         # different types: one numeric, the other alpha (i.e. empty)
         # numeric segments are always newer than alpha segments
         if two == offset2:
-            return 1 if is_num else -1
+            return VerComp.RIGHT_OLDER if is_num else VerComp.RIGHT_NEWER
 
         if is_num:
             # throw away any leading zeros - it's a number, right?
@@ -128,12 +135,12 @@ def rpm_version_compare(a: Version, b: Version) -> int:
             # whichever number has more digits wins
             len_one, len_two = len(one_cut), len(two_cut)
             if len_one != len_two:
-                return 1 if len_one > len_two else -1
+                return VerComp.RIGHT_OLDER if len_one > len_two else VerComp.RIGHT_NEWER
 
         if two_cut > one_cut:
-            return -1
+            return VerComp.RIGHT_NEWER
         if one_cut > two_cut:
-            return 1
+            return VerComp.RIGHT_OLDER
 
         one = offset1
         two = offset2
@@ -141,7 +148,7 @@ def rpm_version_compare(a: Version, b: Version) -> int:
     # this catches the case where all numeric and alpha segments have compared
     # identically but the segment separating characters were different
     if not valid_one() and not valid_two():
-        return 0
+        return VerComp.EQUAL
 
     # the final showdown. we never want a remaining alpha string to beat an empty string.
     # the logic is a bit weird, but:
@@ -149,12 +156,12 @@ def rpm_version_compare(a: Version, b: Version) -> int:
     # - if one is an alpha, two is newer.
     # - otherwise one is newer.
     if a[one].isalpha() or (not valid_one() and not b[two].isalpha()):
-        return -1
+        return VerComp.RIGHT_NEWER
     else:
-        return 1
+        return VerComp.RIGHT_OLDER
 
 
-def compare_package_versions(ver_a: str, ver_b: str) -> int:
+def compare_package_versions(ver_a: str, ver_b: str) -> VerComp:
     """return -1: `b` is newer than `a`, 0: `a == b`, +1: `a` is newer than `b`"""
 
     parsed_a, parsed_b = parseEVR(ver_a), parseEVR(ver_b)
@@ -163,7 +170,7 @@ def compare_package_versions(ver_a: str, ver_b: str) -> int:
         assert isinstance(a, (str, int))
         assert isinstance(b, (str, int))
         result = rpm_version_compare(a, b)
-        if result != 0:
+        if result != VerComp.EQUAL:
             return result
 
-    return 0
+    return VerComp.EQUAL

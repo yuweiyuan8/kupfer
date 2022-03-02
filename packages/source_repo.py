@@ -66,11 +66,13 @@ class SourceRepo:
                 update=False,
             )
 
-    def discover_packages(self, parallel: bool = True) -> dict[str, Pkgbuild]:
+    def discover_packages(self, parallel: bool = True, refresh: bool = False) -> dict[str, Pkgbuild]:
         pkgbuilds_dir = self.pkgbuilds_dir
         packages: dict[str, Pkgbuild] = {}
         paths = []
         self.init(interactive=False)
+        if self.pkgbuilds and not refresh:
+            return self.pkgbuilds.copy()
         for repo in REPOSITORIES:
             for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
                 paths.append(os.path.join(repo, dir))

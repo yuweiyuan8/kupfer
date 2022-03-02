@@ -55,7 +55,7 @@ class Pkgbuild:
     def get_pkg_filenames(self, arch: Arch, native_chroot: BuildChroot) -> Iterable[str]:
         config_path = '/' + native_chroot.write_makepkg_conf(
             target_arch=arch,
-            cross_chroot_relative=os.path.join('chroot', arch),
+            cross_chroot_relative=os.path.join('chroot', f'base_{arch}'),
             cross=True,
         )
 
@@ -167,6 +167,10 @@ class Pkgbuild:
         assert isinstance(result, subprocess.CompletedProcess)
         if result.returncode != 0:
             raise Exception(f'Failed to compile package {self.path}')
+
+    def acquire(self, arch):
+        self.build(arch)
+        return
 
 
 class Pkgbase(Pkgbuild):

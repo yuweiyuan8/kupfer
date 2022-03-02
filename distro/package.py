@@ -25,9 +25,9 @@ class PackageInfo:
     def __repr__(self):
         return f'{self.name}@{self.version}'
 
-    def compare_version(self, other: PackageInfo) -> int:
+    def compare_version(self, other: str) -> int:
         """Returns -1 if `other` is newer than `self`, 0 if `self == other`, 1 if `self` is newer than `other`"""
-        return compare_package_versions(self.version, other.version)
+        return compare_package_versions(self.version, other)
 
     def get_filename(self, ext='.zst') -> str:
         return self._filename or f'{self.name}-{self.version}-{self.arch}.pkg.tar{ext}'
@@ -35,7 +35,7 @@ class PackageInfo:
     def acquire(self) -> str:
         """
         Acquires the package through either build or download.
-        Returns the downloaded file's name.
+        Returns the downloaded file's path.
         """
         assert self.resolved_url
         raise NotImplementedError()
@@ -49,7 +49,7 @@ class RemotePackage(PackageInfo):
     def acquire(self):
         assert self.resolved_url
         assert self.is_remote()
-        download_file(f'{self.resolved_url}/{self.get_filename()}')
+        return download_file(f'{self.resolved_url}/{self.get_filename()}')
 
 
 def parse_package_desc(desc_str: str, arch: Arch, resolved_url=None) -> PackageInfo:
