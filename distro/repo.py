@@ -1,8 +1,11 @@
 from copy import deepcopy
 from io import BufferedReader
+from itertools import chain
+from typing import Any, Mapping
 import logging
 import os
 import tarfile
+
 
 from config import config
 from utils import download_file
@@ -17,6 +20,34 @@ def resolve_url(url_template, repo_name: str, arch: str):
     return result
 
 
+class RepoSearchResult:
+    """Repo search results split along qualifier. Truthy value is calculated on whether all members are empty"""
+    exact_name: list[PackageInfo]
+    provides: list[PackageInfo]
+    replaces: list[PackageInfo]
+    def __init__(self):
+        self.exact_name = []
+        self.provides = []
+        self.replaces = []
+
+    def __bool__(self):
+        return self.exact_name and self.provides and self.replaces
+
+
+ResultSources = Mapping[Any, RepoSearchResult]
+
+
+class MergedResults:
+    results: ResultSources
+    exact_name: list[PackageInfo] = []
+    provides: list[PackageInfo] = []
+    replaces: list[PackageInfo] = []
+    def __init__(self, sources: ResultSources = {}):
+        pass
+    def update(self, additional_sources: ResultSources = {}):
+        for source, result in additional_sources.items():
+            self.results[source] = result
+        self.exact_name = chain()
 class RepoInfo:
     options: dict[str, str] = {}
     url_template: str
@@ -36,6 +67,17 @@ class RepoInfo:
     def scan(self, refresh: bool = False):
         pass
 
+    def get_providers(self, name: str) -> RepoSearchResult:
+        results = RepoSearchResult()
+        for package in self.packages.values():
+            if name == package.name:
+                results.exact_name.append(package)
+            if name in package.provides:
+                results.provides.apend(package)
+            if name in package.replaces:
+                results.replaces.append(package)
+        return results
+
 
 class Repo(RepoInfo):
     name: str
@@ -54,7 +96,7 @@ class Repo(RepoInfo):
             self.scan()
 
     def get_package_from_desc(self, desc_str: str) -> PackageInfo:
-        return parse_package_desc(desc_str=desc_str, arch=self.arch, resolved_url=self.resolved_url)
+        return parse_package_desc(desc_str=desc_str, arch=self.arch, repo_name=self.name, resolved_url=self.resolved_url)
 
     def scan(self, refresh: bool = False):
         if refresh or not self.scanned:
@@ -85,4 +127,5 @@ class Repo(RepoInfo):
         return ('[%s]\n' % self.name) + '\n'.join([f"{key} = {value}" for key, value in options.items()])
 
     def get_RepoInfo(self):
+        return RepoInfo(url_template=self.url_template, options=self.options)
         return RepoInfo(url_template=self.url_template, options=self.options)

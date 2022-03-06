@@ -24,7 +24,7 @@ pacman_cmd = [
 
 class SourceRepo:
     pkgbuilds_dir: str
-    pkgbuilds: dict[str, Pkgbuild]
+    pkgbuilds = dict[str, Pkgbuild]()
     initialized: bool = False
 
     def __init__(self, pkgbuilds_dir: Optional[str] = None):
@@ -111,8 +111,14 @@ class SourceRepo:
                 if not found:
                     logging.debug(f'Removing {dep} from dependencies')
                     package.local_depends.remove(dep)
+            if package.name not in self.pkgbuilds:
+                self.pkgbuilds[package.name] = package
+            self.pkgbuilds[package.name].update(package)
 
-        self.pkgbuilds = packages.copy()
+        # clean up dict entries that previously were defined but are no longer (i.e. name change)
+        for stale_name in set(self.pkgbuilds.keys()) - set(packages.keys()):
+            self.pkgbuilds.pop(stale_name)
+
         return packages
 
     def filter_packages_by_paths(self, paths: Iterable[str], allow_empty_results=True) -> Iterable[Pkgbuild]:

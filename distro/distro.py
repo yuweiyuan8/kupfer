@@ -1,15 +1,36 @@
-from typing import Optional, Mapping
+from typing import Optional, Mapping, ChainMap
 
 from constants import ARCHES, BASE_DISTROS, REPOSITORIES, KUPFER_HTTPS, CHROOT_PATHS
 from generator import generate_pacman_conf_body
 from config import config
 
 from .package import PackageInfo
-from .repo import RepoInfo, Repo
+from .repo import RepoInfo, Repo, RepoSearchResult
 
 
-class Distro:
+class DistroInfo:
     repos: Mapping[str, Repo]
+
+    def get_packages(self) -> Mapping[str, PackageInfo]:
+        """ get packages from all repos, semantically overlaying them"""
+        # results = {}
+        # for repo in list(self.repos.values())[::-1]: # TODO: figure if the list even needs to be reversed
+        #    assert repo.packages is not None
+        #    for package in repo.packages.values():
+        #        results[package.name] = package
+        # return results
+        return ChainMap[str, PackageInfo](*[repo.packages for repo in list(self.repos.values())])
+
+    def get_providers(self, name: str, allow_empty: bool = False) -> dict[str, RepoSearchResult]:
+        """Returns a mapping from repo.name to RepoSearchResult"""
+        for repo in self.repos:
+            providers = repo.get_providers(name)
+            # check whether we got empty lists as result. results class implements custom __bool__()
+            if providers or allow_empty:
+                yield repo.name, providers
+
+
+class Distro(DistroInfo):
     arch: str
 
     def __init__(self, arch: str, repo_infos: dict[str, RepoInfo], scan=False):
@@ -24,14 +45,6 @@ class Distro:
                 options=repo_info.options,
                 scan=scan,
             )
-
-    def get_packages(self):
-        """ get packages from all repos, semantically overlaying them"""
-        results = dict[str, PackageInfo]()
-        for repo in self.repos.values().reverse():
-            assert (repo.packages is not None)
-            for package in repo.packages:
-                results[package.name] = package
 
     def repos_config_snippet(self, extra_repos: Mapping[str, RepoInfo] = {}) -> str:
         extras = [Repo(name, url_template=info.url_template, arch=self.arch, options=info.options, scan=False) for name, info in extra_repos.items()]

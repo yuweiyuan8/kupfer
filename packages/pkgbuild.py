@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import logging
 import os
 import subprocess
 
 from copy import deepcopy
-from tkinter import Pack
 from typing import Any, Iterable, Optional
 
 from chroot.build import BuildChroot
@@ -26,6 +27,7 @@ class Pkgbuild:
     path = ''
     pkgver = ''
     pkgrel = ''
+    source_packages: dict[Arch, 'SourcePackage']
 
     def __init__(
         self,
@@ -41,6 +43,7 @@ class Pkgbuild:
         self.depends = deepcopy(depends)
         self.provides = deepcopy(provides)
         self.replaces = deepcopy(replaces)
+        self.source_packages = {}
 
     def __repr__(self):
         return f'Pkgbuild({self.name},{repr(self.path)},{self.version},{self.mode})'
@@ -101,6 +104,7 @@ class Pkgbuild:
         clean_chroot: bool = False,
         repo_dir: str = None,
     ):
+        """build the PKGBUILD for the given Architecture. Returns the directory in which the PKGBUILD and the resulting packages reside"""
         makepkg_compile_opts = ['--holdver']
         makepkg_conf_path = 'etc/makepkg.conf'
         repo_dir = repo_dir or config.get_path('pkgbuilds')
@@ -163,14 +167,39 @@ class Pkgbuild:
 
         build_cmd = f'makepkg --config {makepkg_conf_absolute} --skippgpcheck --needed --noconfirm --ignorearch {" ".join(makepkg_compile_opts)}'
         logging.debug(f'Building: Running {build_cmd}')
-        result = build_root.run_cmd(build_cmd, inner_env=env, cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], self.path))
+        pkgbuild_dir = os.path.join(CHROOT_PATHS['pkgbuilds'], self.path)
+        result = build_root.run_cmd(build_cmd, inner_env=env, cwd=pkgbuild_dir)
         assert isinstance(result, subprocess.CompletedProcess)
         if result.returncode != 0:
             raise Exception(f'Failed to compile package {self.path}')
+        return pkgbuild_dir
 
-    def acquire(self, arch):
-        self.build(arch)
-        return
+    def update_version(self):
+        """updates `self.version` from `self.pkgver` and `self.pkgrel`"""
+        self.version = f'{self.pkgver}-{self.pkgrel}'
+
+    def update(self, pkgbuild: Pkgbuild):
+        self.depends = pkgbuild.depends
+        self.provides = pkgbuild.provides
+        self.replaces = pkgbuild.replaces
+        self.pkgver = pkgbuild.pkgver
+        self.pkgrel = pkgbuild.pkgrel
+        self.local_depends = pkgbuild.local_depends
+        self.path = pkgbuild.path
+        self.mode = pkgbuild.mode
+        self.update_version()
+        for arch, package in self.source_packages.items():
+            if package.pkgbuild is not self:
+                self.source_packages.pop(arch)
+                logging.warning(
+                    f'Pkgbuild {self.name} held reference package {package.name} for arch {arch} that references Pkgbuild {package.pkgbuild} instead')
+                continue
+            package.update()
+
+    def get_source_repo(self, arch: Arch) -> 'SourcePackage':
+        if not self.source_packages.get(arch, None):
+            self.source_packages[arch] = SourcePackage(arch=arch, pkgbuild=self)
+        return self.source_packages[arch]
 
 
 class Pkgbase(Pkgbuild):
@@ -233,8 +262,31 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: BuildChroot) -> list[Pk
 
     results = base_package.subpackages or [base_package]
     for pkg in results:
-        pkg.version = f'{pkg.pkgver}-{pkg.pkgrel}'
+        pkg.update_version()
         if not (pkg.pkgver == base_package.pkgver and pkg.pkgrel == base_package.pkgrel):
             raise Exception('subpackage malformed! pkgver differs!')
 
     return results
+
+
+class SourcePackage(PackageInfo):
+    pkgbuild: Pkgbuild
+
+    def __init__(self, arch: Arch, pkgbuild: Pkgbuild):
+        self.arch = arch
+        self.pkgbuild = pkgbuild
+        self.update()
+
+    def update(self):
+        self.name = self.pkgbuild.name
+        self.depends = self.pkgbuild.depends
+        self.provides = self.pkgbuild.provides
+        self.replaces = self.pkgbuild.replaces
+        self.local_depends = self.pkgbuild.local_depends
+        self.path = self.pkgbuild.path
+        self.pkgbuild.update_version()
+        self.version = self.pkgbuild.version
+        self.version = self.pkgbuild.version
+
+    def acquire(self):
+        return os.path.join(self.pkgbuild.build(arch=self.arch), self.get_filename())
