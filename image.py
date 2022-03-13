@@ -13,7 +13,7 @@ from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
-from packages.local_repo import get_repo, LocalRepo
+#from packages.local_repo import get_repo, LocalRepo
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
 

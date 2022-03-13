@@ -5,44 +5,46 @@ import os
 import subprocess
 
 from copy import deepcopy
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, Sequence
 
 from chroot.build import BuildChroot
 from config import config
 from constants import Arch, CHROOT_PATHS, MAKEPKG_CMD, CROSSDIRECT_PKGS, GCC_HOSTSPECS
-from distro.package import PackageInfo
-from distro.repo import Repo
+from distro.abstract import PackageInfo
 
 from .helpers import setup_build_chroot, get_makepkg_env
 
 
-class Pkgbuild:
+class Pkgbuild(PackageInfo):
     name: str
+    version: str
+    arches: list[Arch]
     depends: list[str]
     provides: list[str]
     replaces: list[str]
     local_depends: list[str]
-    repo: Optional[Repo] = None
     mode = ''
     path = ''
     pkgver = ''
     pkgrel = ''
-    source_packages: dict[Arch, 'SourcePackage']
+    source_packages: dict[Arch, SourcePackage]
 
     def __init__(
         self,
         relative_path: str,
-        repo: Repo,
+        arches: list[Arch] = [],
         depends: list[str] = [],
         provides: list[str] = [],
         replaces: list[str] = [],
     ) -> None:
+        """Create new Pkgbuild representation for file located at `relative_path/PKGBUILD`. `relative_path` will be written to `self.path`"""
+        self.name = os.path.basename(relative_path)
         self.version = ''
-        self.repo = repo
         self.path = relative_path
         self.depends = deepcopy(depends)
         self.provides = deepcopy(provides)
         self.replaces = deepcopy(replaces)
+        self.arches = deepcopy(arches)
         self.source_packages = {}
 
     def __repr__(self):
@@ -50,10 +52,6 @@ class Pkgbuild:
 
     def names(self):
         return list(set([self.name] + self.provides + self.replaces))
-
-    def getPackageInfo(self, arch: Arch, ext='zst'):
-        assert self.name and self.version and self.pkgver and self.pkgrel
-        return PackageInfo(name=self.name, version=self.version, arch=arch)
 
     def get_pkg_filenames(self, arch: Arch, native_chroot: BuildChroot) -> Iterable[str]:
         config_path = '/' + native_chroot.write_makepkg_conf(
@@ -203,14 +201,34 @@ class Pkgbuild:
 
 
 class Pkgbase(Pkgbuild):
-    subpackages: list[Pkgbuild]
+    subpackages: Sequence[SubPkgbuild]
 
-    def __init__(self, relative_path: str, subpackages: list[Pkgbuild] = [], **args):
-        self.subpackages = deepcopy(subpackages)
+    def __init__(self, relative_path: str, subpackages: Sequence[SubPkgbuild] = [], **args):
+        self.subpackages = list(subpackages)
         super().__init__(relative_path, **args)
 
 
-def parse_pkgbuild(relative_pkg_dir: str, native_chroot: BuildChroot) -> list[Pkgbuild]:
+class SubPkgbuild(Pkgbuild):
+    pkgbase: Pkgbase
+
+    def __init__(self, name: str, pkgbase: Pkgbase):
+        self.depends = []
+        self.provides = []
+        self.replaces = []
+        self.local_depends = []
+
+        self.name = name
+        self.pkgbase = pkgbase
+
+        self.arches = pkgbase.arches
+        self.version = pkgbase.version
+        self.mode = pkgbase.mode
+        self.path = pkgbase.path
+        self.pkgver = pkgbase.pkgver
+        self.pkgrel = pkgbase.pkgrel
+
+
+def parse_pkgbuild(relative_pkg_dir: str, native_chroot: BuildChroot) -> Sequence[Pkgbuild]:
     mode = None
     with open(os.path.join(native_chroot.get_path(CHROOT_PATHS['pkgbuilds']), relative_pkg_dir, 'PKGBUILD'), 'r') as file:
         for line in file.read().split('\n'):
@@ -232,7 +250,7 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: BuildChroot) -> list[Pk
     assert (isinstance(srcinfo, subprocess.CompletedProcess))
     lines = srcinfo.stdout.decode('utf-8').split('\n')
 
-    current = base_package
+    current: Pkgbuild = base_package
     multi_pkgs = False
     for line_raw in lines:
         line = line_raw.strip()
@@ -244,24 +262,28 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: BuildChroot) -> list[Pk
             multi_pkgs = True
         elif line.startswith('pkgname'):
             if multi_pkgs:
-                if current is not base_package:
-                    base_package.subpackages.append(current)
-                current = deepcopy(base_package)
-            current.name = splits[1]
+                current = SubPkgbuild(splits[1], base_package)
+                assert isinstance(base_package.subpackages, list)
+                base_package.subpackages.append(current)
+            else:
+                current.name = splits[1]
         elif line.startswith('pkgver'):
             current.pkgver = splits[1]
         elif line.startswith('pkgrel'):
             current.pkgrel = splits[1]
+        elif line.startswith('arch'):
+            current.arches.append(splits[1])
         elif line.startswith('provides'):
             current.provides.append(splits[1])
         elif line.startswith('replaces'):
             current.replaces.append(splits[1])
         elif line.startswith('depends') or line.startswith('makedepends') or line.startswith('checkdepends') or line.startswith('optdepends'):
             current.depends.append(splits[1].split('=')[0].split(': ')[0])
-    current.depends = list(set(current.depends))
 
-    results = base_package.subpackages or [base_package]
+    results: Sequence[Pkgbuild] = list(base_package.subpackages) or [base_package]
     for pkg in results:
+        assert isinstance(pkg, Pkgbuild)
+        pkg.depends = list(set(pkg.depends))
         pkg.update_version()
         if not (pkg.pkgver == base_package.pkgver and pkg.pkgrel == base_package.pkgrel):
             raise Exception('subpackage malformed! pkgver differs!')
@@ -285,7 +307,6 @@ class SourcePackage(PackageInfo):
         self.local_depends = self.pkgbuild.local_depends
         self.path = self.pkgbuild.path
         self.pkgbuild.update_version()
-        self.version = self.pkgbuild.version
         self.version = self.pkgbuild.version
 
     def acquire(self):

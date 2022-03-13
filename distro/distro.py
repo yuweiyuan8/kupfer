@@ -1,39 +1,18 @@
-from typing import Optional, Mapping, ChainMap
+from typing import Optional, Mapping
 
-from constants import ARCHES, BASE_DISTROS, REPOSITORIES, KUPFER_HTTPS, CHROOT_PATHS
+from constants import Arch, ARCHES, BASE_DISTROS, REPOSITORIES, KUPFER_HTTPS, CHROOT_PATHS
 from generator import generate_pacman_conf_body
 from config import config
 
-from .package import PackageInfo
-from .repo import RepoInfo, Repo, RepoSearchResult
-
-
-class DistroInfo:
-    repos: Mapping[str, Repo]
-
-    def get_packages(self) -> Mapping[str, PackageInfo]:
-        """ get packages from all repos, semantically overlaying them"""
-        # results = {}
-        # for repo in list(self.repos.values())[::-1]: # TODO: figure if the list even needs to be reversed
-        #    assert repo.packages is not None
-        #    for package in repo.packages.values():
-        #        results[package.name] = package
-        # return results
-        return ChainMap[str, PackageInfo](*[repo.packages for repo in list(self.repos.values())])
-
-    def get_providers(self, name: str, allow_empty: bool = False) -> dict[str, RepoSearchResult]:
-        """Returns a mapping from repo.name to RepoSearchResult"""
-        for repo in self.repos:
-            providers = repo.get_providers(name)
-            # check whether we got empty lists as result. results class implements custom __bool__()
-            if providers or allow_empty:
-                yield repo.name, providers
+from .abstract import RepoInfo, DistroInfo
+from .repo import Repo
 
 
 class Distro(DistroInfo):
     arch: str
+    repos: Mapping[str, Repo]
 
-    def __init__(self, arch: str, repo_infos: dict[str, RepoInfo], scan=False):
+    def __init__(self, arch: str, repo_infos: Mapping[str, RepoInfo], scan=False):
         assert (arch in ARCHES)
         self.arch = arch
         self.repos = dict[str, Repo]()
@@ -56,23 +35,36 @@ class Distro(DistroInfo):
 
 
 def get_base_distro(arch: str) -> Distro:
-    repos = {name: RepoInfo(url_template=url) for name, url in BASE_DISTROS[arch]['repos'].items()}
+    repos = {name: RepoInfo(name, url_template=url) for name, url in BASE_DISTROS[arch]['repos'].items()}
     return Distro(arch=arch, repo_infos=repos, scan=False)
 
 
 def get_kupfer(arch: str, url_template: str) -> Distro:
-    repos = {name: RepoInfo(url_template=url_template, options={'SigLevel': 'Never'}) for name in REPOSITORIES}
+    repos: Mapping[str, Repo] = {name: Repo(name, url_template=url_template, arch=arch, options={'SigLevel': 'Never'}) for name in REPOSITORIES}
     return Distro(
         arch=arch,
         repo_infos=repos,
     )
 
 
-def get_kupfer_https(arch: str) -> Distro:
-    return get_kupfer(arch, KUPFER_HTTPS)
+kupfer_https: dict[Arch, Distro]
+kupfer_local: dict[Arch, dict[bool, Distro]]
 
 
-def get_kupfer_local(arch: Optional[str] = None, in_chroot: bool = True) -> Distro:
+def get_kupfer_https(arch: Arch) -> Distro:
+    global kupfer_https
+    if arch not in kupfer_https or not kupfer_https[arch]:
+        kupfer_https[arch] = get_kupfer(arch, KUPFER_HTTPS)
+    return kupfer_https[arch]
+
+
+def get_kupfer_local(arch: Optional[Arch] = None, in_chroot: bool = True) -> Distro:
+    global kupfer_local
     arch = arch or config.runtime['arch']
     dir = CHROOT_PATHS['packages'] if in_chroot else config.get_path('packages')
-    return get_kupfer(arch, f"file://{dir}/$arch/$repo")
+    if arch not in kupfer_local:
+        kupfer_local[arch] = {}
+    locals = kupfer_local[arch]
+    if in_chroot not in locals or not locals[in_chroot]:
+        locals[in_chroot] = get_kupfer(arch, f"file://{dir}/$arch/$repo")
+    return locals[in_chroot]

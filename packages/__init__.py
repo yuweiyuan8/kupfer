@@ -11,8 +11,8 @@ from ssh import run_ssh_command, scp_put_files
 from wrapper import enforce_wrap
 from utils import git
 
-#from .pkgbuild import Pkgbuild
-from .local_repo import LocalRepo, get_repo
+# from .pkgbuild import Pkgbuild
+#from .local_repo import get_local_repo
 
 
 def build(paths: Iterable[str], force: bool, arch: Optional[Arch]):
@@ -23,7 +23,7 @@ def build(paths: Iterable[str], force: bool, arch: Optional[Arch]):
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
     enforce_wrap()
     config.enforce_config_loaded()
-    local_repo = get_repo()
+    local_repo = get_local_repo()
     local_repo.init(arch)
     # repo: dict[str, Pkgbuild] = local_repo.discover_packages()
     if arch != config.runtime['arch']:
@@ -50,7 +50,7 @@ def cmd_packages():
 def cmd_update(non_interactive: bool = False):
     """Update PKGBUILDs git repo"""
     enforce_wrap()
-    get_repo().pkgbuilds.init(interactive=not non_interactive)
+    get_local_repo().pkgbuilds.init(interactive=not non_interactive)
 
 
 @cmd_packages.command(name='build')
@@ -135,7 +135,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 @cmd_packages.command(name='list')
 def cmd_list():
     enforce_wrap()
-    repo = get_repo()
+    repo = get_local_repo()
     logging.info('Discovering packages.')
     packages = repo.discover_packages()
     logging.info('Done! Pkgbuilds:')
@@ -151,7 +151,7 @@ def cmd_check(paths: list[str]):
     """Check that specified PKGBUILDs are formatted correctly"""
     enforce_wrap()
     paths = list(paths)
-    repo = get_repo()
+    repo = get_local_repo()
     packages = repo.pkgbuilds.filter_packages_by_paths(paths, allow_empty_results=False)
 
     for package in packages:

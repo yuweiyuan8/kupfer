@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Optional, NamedTuple, TypeVar, Sequence, Union
+from typing import NamedTuple, Sequence, Union
 
 # free-form python port of https://gitlab.archlinux.org/pacman/pacman/-/blob/master/lib/libalpm/version.c
 
