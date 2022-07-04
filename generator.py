@@ -179,6 +179,7 @@ SRCEXT='.src.tar.gz'
         conf += f'''
 
 export ARCH="{COMPILE_ARCHES[arch]}"
+export GOARCH="$ARCH"
 export CROSS_COMPILE="{hostspec}-"
 export CC="{hostspec}-gcc {includes} {libs}"
 export CXX="{hostspec}-g++ {includes} {libs}"
