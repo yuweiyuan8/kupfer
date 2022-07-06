@@ -214,6 +214,7 @@ class Chroot(AbstractChroot):
     def run_cmd(
         self,
         script: Union[str, list[str]],
+        user: str = 'root',
         inner_env: dict[str, str] = {},
         outer_env: dict[str, str] = os.environ.copy() | {'QEMU_LD_PREFIX': '/usr/aarch64-linux-gnu'},
         attach_tty: bool = False,
@@ -227,6 +228,7 @@ class Chroot(AbstractChroot):
         if outer_env is None:
             outer_env = os.environ.copy()
         env_cmd = ['/usr/bin/env'] + [f'{shell_quote(key)}={shell_quote(value)}' for key, value in inner_env.items()]
+        su_cmd = []
         kwargs: dict = {
             'env': outer_env,
         }
@@ -237,7 +239,9 @@ class Chroot(AbstractChroot):
             script = ' '.join(script)
         if cwd:
             script = f"cd {shell_quote(cwd)} && ( {script} )"
-        cmd = ['chroot', self.path] + env_cmd + [
+        if user != 'root':
+            su_cmd = ['su', user, '--']
+        cmd = ['chroot', self.path] + su_cmd + env_cmd + [
             '/bin/bash',
             '-c',
             script,
