@@ -11,7 +11,7 @@ from typing import Optional
 
 from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
-from config import config, Profile
+from config import config, Profile, PROFILE_DEFAULTS
 from distro.distro import get_base_distro, get_kupfer_https
 from packages import build_enable_qemu_binfmt, discover_packages, build_packages
 from ssh import copy_ssh_keys
@@ -308,7 +308,8 @@ def install_rootfs(
     use_local_repos: bool,
     profile: Profile,
 ):
-    user = profile['username'] or 'kupfer'
+    profile = PROFILE_DEFAULTS | profile
+    user = profile['username']
     post_cmds = FLAVOURS[flavour].get('post_cmds', [])
     chroot = get_device_chroot(device=device, flavour=flavour, arch=arch, packages=packages, use_local_repos=use_local_repos)
 
