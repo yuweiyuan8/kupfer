@@ -307,10 +307,11 @@ def install_rootfs(
     packages: list[str],
     use_local_repos: bool,
     profile: Profile,
+    kupfer_config_apply: bool = True,
 ):
+    packages += ['kupfer-config'] if kupfer_config_apply else []
     profile = PROFILE_DEFAULTS | profile
     user = profile['username']
-    post_cmds = FLAVOURS[flavour].get('post_cmds', [])
     chroot = get_device_chroot(device=device, flavour=flavour, arch=arch, packages=packages, use_local_repos=use_local_repos)
 
     mount_chroot(rootfs_device, bootfs_device, chroot)
@@ -333,11 +334,12 @@ def install_rootfs(
     for target, content in files.items():
         with open(os.path.join(chroot.path, target.lstrip('/')), 'w') as file:
             file.write(content)
-    if post_cmds:
-        result = chroot.run_cmd(' && '.join(post_cmds))
+
+    if kupfer_config_apply:
+        result = chroot.run_cmd(['kupfer-config', 'apply'])
         assert isinstance(result, subprocess.CompletedProcess)
         if result.returncode != 0:
-            raise Exception('Error running post_cmds')
+            raise Exception('Error running kupfer-config apply')
 
     logging.info('Preparing to unmount chroot')
     res = chroot.run_cmd('sync && umount /boot', attach_tty=True)
@@ -356,11 +358,12 @@ def cmd_image():
 
 @cmd_image.command(name='build')
 @click.argument('profile_name', required=False)
-@click.option('--local-repos/--no-local-repos', '-l/-L', default=True, help='Whether to use local packages. Defaults to true.')
-@click.option('--build-pkgs/--no-build-pkgs', '-p/-P', default=True, help='Whether to build missing/outdated local packages. Defaults to true.')
+@click.option('--local-repos/--no-local-repos', '-l/-L', is_flag=True, default=True, help='Whether to use local packages. Defaults to true.')
+@click.option('--build-pkgs/--no-build-pkgs', '-p/-P', is_flag=True, default=True, help='Whether to build missing/outdated local packages. Defaults to true.')
 @click.option('--block-target', default=None, help='Override the block device file to target')
 @click.option('--skip-part-images', default=False, help='Skip creating image files for the partitions and directly work on the target block device.')
-def cmd_build(profile_name: str = None, local_repos: bool = True, build_pkgs: bool = True, block_target: str = None, skip_part_images: bool = False):
+@click.option('--no-kupfer-config-apply', is_flag=True, help='skip applying kupfer-config, which mainly enables services according to the image flavor')
+def cmd_build(profile_name: str = None, local_repos: bool = True, build_pkgs: bool = True, block_target: str = None, skip_part_images: bool = False, no_kupfer_config_apply: bool = False):
     """Build a device image"""
     enforce_wrap()
     profile: Profile = config.get_profile(profile_name)
@@ -372,7 +375,7 @@ def cmd_build(profile_name: str = None, local_repos: bool = True, build_pkgs: bo
     sector_size = 4096
     rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
 
-    packages = BASE_PACKAGES + DEVICES[device] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
+    packages = BASE_PACKAGES + DEVICES[device] + FLAVOURS[flavour]['packages'] + profile['pkgs_include'] + ([] if no_kupfer_config_apply else ['kupfer-config'])
 
     if arch != config.runtime['arch']:
         build_enable_qemu_binfmt(arch)
