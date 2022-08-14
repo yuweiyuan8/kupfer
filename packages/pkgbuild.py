@@ -1,36 +1,55 @@
-from copy import deepcopy
+from __future__ import annotations
+
+from . import logging
 import os
 import subprocess
 
-from chroot import Chroot
-from constants import CHROOT_PATHS, MAKEPKG_CMD
+from typing import Optional, Sequence
 
+from chroot import Chroot
+from constants import Arch, CHROOT_PATHS, MAKEPKG_CMD
 from distro.package import PackageInfo
 
 
 class Pkgbuild(PackageInfo):
+    name: str
+    version: str
+    arches: list[Arch]
     depends: list[str]
     provides: list[str]
     replaces: list[str]
     local_depends: list[str]
-    repo = ''
-    mode = ''
-    path = ''
-    pkgver = ''
-    pkgrel = ''
+    repo: str
+    mode: str
+    path: str
+    pkgver: str
+    pkgrel: str
 
     def __init__(
         self,
         relative_path: str,
+        arches: list[Arch] = [],
         depends: list[str] = [],
         provides: list[str] = [],
         replaces: list[str] = [],
+        repo: Optional[str] = None,
     ) -> None:
+        """
+        Create new Pkgbuild representation for file located at `{relative_path}/PKGBUILD`.
+        `relative_path` will be stored in `self.path`.
+        """
+        self.name = os.path.basename(relative_path)
         self.version = ''
+        self.arches = list(arches)
+        self.depends = list(depends)
+        self.provides = list(provides)
+        self.replaces = list(replaces)
+        self.local_depends = []
+        self.repo = repo or ''
+        self.mode = ''
         self.path = relative_path
-        self.depends = deepcopy(depends)
-        self.provides = deepcopy(provides)
-        self.replaces = deepcopy(replaces)
+        self.pkgver = ''
+        self.pkgrel = ''
 
     def __repr__(self):
         return f'Pkgbuild({self.name},{repr(self.path)},{self.version},{self.mode})'
@@ -38,18 +57,45 @@ class Pkgbuild(PackageInfo):
     def names(self):
         return list(set([self.name] + self.provides + self.replaces))
 
+    def update_version(self):
+        """updates `self.version` from `self.pkgver` and `self.pkgrel`"""
+        self.version = f'{self.pkgver}-{self.pkgrel}'
+
 
 class Pkgbase(Pkgbuild):
-    subpackages: list[Pkgbuild]
+    subpackages: Sequence[SubPkgbuild]
 
-    def __init__(self, relative_path: str, subpackages: list[Pkgbuild] = [], **args):
-        self.subpackages = deepcopy(subpackages)
+    def __init__(self, relative_path: str, subpackages: Sequence[SubPkgbuild] = [], **args):
+        self.subpackages = list(subpackages)
         super().__init__(relative_path, **args)
 
 
-def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> list[Pkgbuild]:
+class SubPkgbuild(Pkgbuild):
+    pkgbase: Pkgbase
+
+    def __init__(self, name: str, pkgbase: Pkgbase):
+
+        self.name = name
+        self.pkgbase = pkgbase
+
+        self.version = pkgbase.version
+        self.arches = pkgbase.arches
+        self.depends = list(pkgbase.depends)
+        self.provides = []
+        self.replaces = []
+        self.local_depends = list(pkgbase.local_depends)
+        self.repo = pkgbase.repo
+        self.mode = pkgbase.mode
+        self.path = pkgbase.path
+        self.pkgver = pkgbase.pkgver
+        self.pkgrel = pkgbase.pkgrel
+
+
+def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> Sequence[Pkgbuild]:
+    filename = os.path.join(native_chroot.get_path(CHROOT_PATHS['pkgbuilds']), relative_pkg_dir, 'PKGBUILD')
+    logging.debug(f"Parsing {filename}")
     mode = None
-    with open(os.path.join(native_chroot.get_path(CHROOT_PATHS['pkgbuilds']), relative_pkg_dir, 'PKGBUILD'), 'r') as file:
+    with open(filename, 'r') as file:
         for line in file.read().split('\n'):
             if line.startswith('_mode='):
                 mode = line.split('=')[1]
@@ -69,7 +115,7 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> list[Pkgbuil
     assert (isinstance(srcinfo, subprocess.CompletedProcess))
     lines = srcinfo.stdout.decode('utf-8').split('\n')
 
-    current = base_package
+    current: Pkgbuild = base_package
     multi_pkgs = False
     for line_raw in lines:
         line = line_raw.strip()
@@ -81,25 +127,35 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> list[Pkgbuil
             multi_pkgs = True
         elif line.startswith('pkgname'):
             if multi_pkgs:
-                current = deepcopy(base_package)
+                current = SubPkgbuild(splits[1], base_package)
+                assert isinstance(base_package.subpackages, list)
                 base_package.subpackages.append(current)
-            current.name = splits[1]
+            else:
+                current.name = splits[1]
         elif line.startswith('pkgver'):
             current.pkgver = splits[1]
         elif line.startswith('pkgrel'):
             current.pkgrel = splits[1]
+        elif line.startswith('arch'):
+            current.arches.append(splits[1])
         elif line.startswith('provides'):
             current.provides.append(splits[1])
         elif line.startswith('replaces'):
             current.replaces.append(splits[1])
         elif line.startswith('depends') or line.startswith('makedepends') or line.startswith('checkdepends') or line.startswith('optdepends'):
             current.depends.append(splits[1].split('=')[0].split(': ')[0])
-    current.depends = list(set(current.depends))
 
-    results = base_package.subpackages or [base_package]
+    results: Sequence[Pkgbuild] = list(base_package.subpackages)
+    if len(results) > 1:
+        logging.debug(f" Split package detected: {base_package.name}: {results}")
+        base_package.update_version()
+    else:
+        results = [base_package]
+
     for pkg in results:
-        pkg.version = f'{pkg.pkgver}-{pkg.pkgrel}'
-        if not (pkg.pkgver == base_package.pkgver and pkg.pkgrel == base_package.pkgrel):
-            raise Exception('subpackage malformed! pkgver differs!')
-
+        assert isinstance(pkg, Pkgbuild)
+        pkg.depends = list(set(pkg.depends))  # deduplicate dependencies
+        pkg.update_version()
+        if not (pkg.version == base_package.version):
+            raise Exception(f'Subpackage malformed! Versions differ! base: {base_package}, subpackage: {pkg}')
     return results
