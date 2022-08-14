@@ -112,6 +112,8 @@ def discover_packages(parallel: bool = True) -> dict[str, Pkgbuild]:
     native_chroot = setup_build_chroot(config.runtime['arch'], add_kupfer_repos=False)
     results = []
 
+    logging.info("Parsing PKGBUILDs")
+
     if parallel:
         chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(delayed(parse_pkgbuild)(path, native_chroot) for path in paths))
     else:
@@ -124,7 +126,7 @@ def discover_packages(parallel: bool = True) -> dict[str, Pkgbuild]:
     for package in results:
         for name in [package.name] + package.replaces:
             if name in packages:
-                logging.warn(f'Overriding {packages[package.name]} with {package}')
+                logging.warning(f'Overriding {packages[package.name]} with {package}')
             packages[name] = package
 
     # This filters the deps to only include the ones that are provided in this repo
@@ -135,11 +137,10 @@ def discover_packages(parallel: bool = True) -> dict[str, Pkgbuild]:
             for p in packages.values():
                 if found:
                     break
-                for name in p.names():
-                    if dep == name:
-                        logging.debug(f'Found {p.name} that provides {dep}')
-                        found = True
-                        break
+                if dep in p.names():
+                    logging.debug(f'Found {p.name} that provides {dep}')
+                    found = True
+                    break
             if not found:
                 logging.debug(f'Removing {dep} from dependencies')
                 package.local_depends.remove(dep)
@@ -292,6 +293,7 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
     # clean up same name package from pacman cache
     cache_file = os.path.join(pacman_cache_dir, file_name)
     if os.path.exists(cache_file):
+        logging.debug("Removing cached package file {cache_file}")
         os.unlink(cache_file)
     cmd = [
         'repo-add',
@@ -467,7 +469,7 @@ def setup_build_chroot(
     init_prebuilts(arch)
     chroot = get_build_chroot(arch, add_kupfer_repos=add_kupfer_repos)
     chroot.mount_packages()
-    logging.debug(f'packages.py: Initializing {arch} build chroot')
+    logging.debug(f'Initializing {arch} build chroot')
     chroot.initialize(reset=clean_chroot)
     chroot.write_pacman_conf()  # in case it was initialized with different repos
     chroot.activate()
@@ -863,7 +865,7 @@ def cmd_list():
     enforce_wrap()
     logging.info('Discovering packages.')
     packages = discover_packages()
-    logging.info('Done! Pkgbuilds:')
+    logging.info(f'Done! {len(packages)} Pkgbuilds:')
     for p in set(packages.values()):
         print(
             f'name: {p.name}; ver: {p.version}; provides: {p.provides}; replaces: {p.replaces}; local_depends: {p.local_depends}; depends: {p.depends}'
