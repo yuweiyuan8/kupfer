@@ -1,11 +1,11 @@
 import logging
 import os
-import subprocess
 
 from glob import glob
 from shutil import rmtree
 
 from constants import Arch
+from exec import run_root_cmd
 
 from .abstract import Chroot, get_chroot
 from .helpers import base_chroot_name
@@ -26,7 +26,7 @@ class BaseChroot(Chroot):
 
         logging.info(f'Pacstrapping chroot {self.name}: {", ".join(self.base_packages)}')
 
-        result = subprocess.run([
+        result = run_root_cmd([
             'pacstrap',
             '-C',
             pacman_conf_target,

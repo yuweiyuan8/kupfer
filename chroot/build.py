@@ -7,6 +7,7 @@ from typing import Optional
 from config import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
 from distro.distro import get_kupfer_local
+from exec import run_root_cmd
 
 from .abstract import Chroot, get_chroot
 from .helpers import build_chroot_name
@@ -29,7 +30,7 @@ class BuildChroot(Chroot):
                 cmd += ['--exclude', mountpoint.rstrip('/')]
             cmd += [f'{base_chroot.path}/', f'{self.path}/']
             logging.debug(f"running rsync: {cmd}")
-            result = subprocess.run(cmd)
+            result = run_root_cmd(cmd)
             if result.returncode != 0:
                 raise Exception(f'Failed to copy {base_chroot.name} to {self.name}')
 
