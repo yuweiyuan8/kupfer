@@ -1,5 +1,7 @@
 import atexit
+import grp
 import logging
+import pwd
 import subprocess
 from shutil import which
 from typing import Optional, Union, Sequence
@@ -72,3 +74,27 @@ def log_or_exception(raise_exception: bool, msg: str, exc_class=Exception, log_l
         raise exc_class(msg)
     else:
         logging.log(log_level, msg)
+
+
+def get_user_name(uid: Union[str, int]) -> str:
+    if isinstance(uid, int) or uid.isnumeric():
+        return pwd.getpwuid(int(uid)).pw_name
+    return uid
+
+
+def get_group_name(gid: Union[str, int]) -> str:
+    if isinstance(gid, int) or gid.isnumeric():
+        return grp.getgrgid(int(gid)).gr_name
+    return gid
+
+
+def get_uid(user: Union[int, str]) -> int:
+    if isinstance(user, int) or user.isnumeric():
+        return int(user)
+    return pwd.getpwnam(user).pw_uid
+
+
+def get_gid(group: Union[int, str]) -> int:
+    if isinstance(group, int) or group.isnumeric():
+        return int(group)
+    return grp.getgrnam(group).gr_gid
