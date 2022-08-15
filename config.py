@@ -410,7 +410,7 @@ def prompt_config(
     if bold:
         text = click.style(text, bold=True)
 
-    result = click.prompt(text, type=field_type, default=default, value_proc=value_conv, show_default=True)
+    result = click.prompt(text, type=field_type, default=default, value_proc=value_conv, show_default=True)  # type: ignore
     changed = (result != default) and (true_or_zero(default) or true_or_zero(result))
     if changed and echo_changes:
         print(f'value changed: "{text}" = "{result}"')
