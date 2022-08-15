@@ -265,23 +265,23 @@ class ConfigLoadException(Exception):
         super().__init__(self, ' '.join(msg))
 
 
+class ConfigLoadState:
+    load_finished = False
+    exception = None
+
+
 class ConfigStateHolder:
-
-    class ConfigLoadState:
-        load_finished = False
-        exception = None
-
-    file_state = ConfigLoadState()
-
-    defaults = CONFIG_DEFAULTS
     # config options that are persisted to file
     file: dict = {}
     # runtime config not persisted anywhere
-    runtime: dict = CONFIG_RUNTIME_DEFAULTS
+    runtime: dict
+    file_state: ConfigLoadState
     _profile_cache: dict[str, Profile]
 
     def __init__(self, runtime_conf={}, file_conf_path: Optional[str] = None, file_conf_base: dict = {}):
         """init a stateholder, optionally loading `file_conf_path`"""
+        self.file_state = ConfigLoadState()
+        self.runtime = CONFIG_RUNTIME_DEFAULTS.copy()
         self.runtime.update(runtime_conf)
         self.runtime['arch'] = os.uname().machine
         self.file.update(file_conf_base)
@@ -478,7 +478,7 @@ def prompt_for_save(retry_ctx: Optional[click.Context] = None):
     return False
 
 
-config = ConfigStateHolder(file_conf_base=CONFIG_DEFAULTS)
+config: ConfigStateHolder = ConfigStateHolder(file_conf_base=CONFIG_DEFAULTS)
 
 config_option = click.option(
     '-C',
