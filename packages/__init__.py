@@ -12,14 +12,16 @@ from urllib.request import urlopen
 from shutil import rmtree, copyfileobj
 from typing import Iterable, Iterator, Any, Optional
 
+from binfmt import register as binfmt_register
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
+from exec import run_cmd, run_root_cmd
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import PackageInfo, get_kupfer_https, get_kupfer_local
 from ssh import run_ssh_command, scp_put_files
 from wrapper import enforce_wrap
 from utils import git
-from binfmt import register as binfmt_register
+
 from .pkgbuild import Pkgbuild, parse_pkgbuild
 
 pacman_cmd = [
@@ -86,7 +88,7 @@ def init_prebuilts(arch: Arch, dir: str = None):
         for ext1 in ['db', 'files']:
             for ext2 in ['', '.tar.xz']:
                 if not os.path.exists(os.path.join(prebuilts_dir, repo, f'{repo}.{ext1}{ext2}')):
-                    result = subprocess.run(
+                    result = run_cmd(
                         [
                             'tar',
                             '-czf',
@@ -96,6 +98,7 @@ def init_prebuilts(arch: Arch, dir: str = None):
                         ],
                         cwd=os.path.join(prebuilts_dir, repo),
                     )
+                    assert isinstance(result, subprocess.CompletedProcess)
                     if result.returncode != 0:
                         raise Exception(f'Failed to create local repo {repo}')
 
@@ -313,7 +316,8 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
         target_file,
     ]
     logging.debug(f'repo: running cmd: {cmd}')
-    result = subprocess.run(cmd)
+    result = run_cmd(cmd)
+    assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
         raise Exception(f'Failed add package {target_file} to repo {repo_name}')
     for ext in ['db', 'files']:
@@ -720,7 +724,7 @@ def build_enable_qemu_binfmt(arch: Arch, repo: dict[str, Pkgbuild] = None):
         enable_crossdirect=False,
         enable_ccache=False,
     )
-    subprocess.run(['pacman', '-Syy', '--noconfirm', '--needed', '--config', os.path.join(chroot.path, 'etc/pacman.conf')] + QEMU_BINFMT_PKGS)
+    run_root_cmd(['pacman', '-Syy', '--noconfirm', '--needed', '--config', os.path.join(chroot.path, 'etc/pacman.conf')] + QEMU_BINFMT_PKGS)
     if arch != native:
         binfmt_register(arch)
 
