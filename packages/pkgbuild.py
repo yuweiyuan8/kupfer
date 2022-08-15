@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from . import logging
 import os
 import subprocess
 
 from typing import Optional, Sequence
 
-from chroot import Chroot
-from constants import Arch, CHROOT_PATHS, MAKEPKG_CMD
+from config import ConfigStateHolder
+from exec import run_cmd
+from constants import Arch, MAKEPKG_CMD
 from distro.package import PackageInfo
+from logger import logging, setup_logging
 
 
 class Pkgbuild(PackageInfo):
@@ -91,8 +92,14 @@ class SubPkgbuild(Pkgbuild):
         self.pkgrel = pkgbase.pkgrel
 
 
-def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> Sequence[Pkgbuild]:
-    filename = os.path.join(native_chroot.get_path(CHROOT_PATHS['pkgbuilds']), relative_pkg_dir, 'PKGBUILD')
+def parse_pkgbuild(relative_pkg_dir: str, config: ConfigStateHolder) -> Sequence[Pkgbuild]:
+    """
+    Since function may run in a different subprocess, we need to be passed the config via parameter
+    """
+    setup_logging(verbose=config.runtime['verbose'], log_setup=False)  # different thread needs log setup.
+    pkgbuilds_dir = config.get_path('pkgbuilds')
+    pkgdir = os.path.join(pkgbuilds_dir, relative_pkg_dir)
+    filename = os.path.join(pkgdir, 'PKGBUILD')
     logging.debug(f"Parsing {filename}")
     mode = None
     with open(filename, 'r') as file:
@@ -107,9 +114,9 @@ def parse_pkgbuild(relative_pkg_dir: str, native_chroot: Chroot) -> Sequence[Pkg
     base_package = Pkgbase(relative_pkg_dir)
     base_package.mode = mode
     base_package.repo = relative_pkg_dir.split('/')[0]
-    srcinfo = native_chroot.run_cmd(
+    srcinfo = run_cmd(
         MAKEPKG_CMD + ['--printsrcinfo'],
-        cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], base_package.path),
+        cwd=pkgdir,
         stdout=subprocess.PIPE,
     )
     assert (isinstance(srcinfo, subprocess.CompletedProcess))

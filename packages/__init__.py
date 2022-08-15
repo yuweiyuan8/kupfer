@@ -100,7 +100,14 @@ def init_prebuilts(arch: Arch, dir: str = None):
                         raise Exception(f'Failed to create local repo {repo}')
 
 
-def discover_packages(parallel: bool = True) -> dict[str, Pkgbuild]:
+_pkgbuilds_discovered = dict[str, Pkgbuild]()
+
+
+def discover_packages(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
+    global _pkgbuilds_discovered
+    if lazy and _pkgbuilds_discovered:
+        logging.debug("Reusing cached pkgbuilds repo")
+        return _pkgbuilds_discovered.copy()
     pkgbuilds_dir = config.get_path('pkgbuilds')
     packages: dict[str, Pkgbuild] = {}
     paths = []
@@ -109,15 +116,15 @@ def discover_packages(parallel: bool = True) -> dict[str, Pkgbuild]:
         for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
             paths.append(os.path.join(repo, dir))
 
-    native_chroot = setup_build_chroot(config.runtime['arch'], add_kupfer_repos=False)
     results = []
 
     logging.info("Parsing PKGBUILDs")
 
+    logging.debug(f"About to parse pkgbuilds. verbosity: {config.runtime['verbose']}")
     if parallel:
-        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(delayed(parse_pkgbuild)(path, native_chroot) for path in paths))
+        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(delayed(parse_pkgbuild)(path, config) for path in paths))
     else:
-        chunks = (parse_pkgbuild(path, native_chroot) for path in paths)
+        chunks = (parse_pkgbuild(path, config) for path in paths)
 
     for pkglist in chunks:
         results += pkglist
@@ -145,6 +152,7 @@ def discover_packages(parallel: bool = True) -> dict[str, Pkgbuild]:
                 logging.debug(f'Removing {dep} from dependencies')
                 package.local_depends.remove(dep)
 
+    _pkgbuilds_discovered = packages.copy()
     return packages
 
 
