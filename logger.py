@@ -4,7 +4,7 @@ import logging
 import sys
 
 
-def setup_logging(verbose: bool):
+def setup_logging(verbose: bool, log_setup: bool = True):
     level_colors = coloredlogs.DEFAULT_LEVEL_STYLES | {'info': {'color': 'magenta', 'bright': True}, 'debug': {'color': 'blue', 'bright': True}}
     field_colors = coloredlogs.DEFAULT_FIELD_STYLES | {'asctime': {'color': 'white', 'faint': True}}
     level = logging.DEBUG if verbose else logging.INFO
@@ -16,7 +16,8 @@ def setup_logging(verbose: bool):
         level_styles=level_colors,
         field_styles=field_colors,
     )
-    logging.debug('Logging set up.')
+    if log_setup:
+        logging.debug('Logging set up.')
 
 
 verbose_option = click.option(
