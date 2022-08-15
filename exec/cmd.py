@@ -54,17 +54,23 @@ def generate_cmd_elevated(cmd: list[str], elevation_method: ElevationMethod):
     return ELEVATION_METHODS[elevation_method] + cmd
 
 
-def generate_cmd_su(cmd: list[str], switch_user: str, elevation_method: Optional[ElevationMethod] = None):
+def generate_cmd_su(
+    cmd: list[str],
+    switch_user: str,
+    elevation_method: Optional[ElevationMethod] = None,
+    force_su: bool = False,
+    force_elevate: bool = False,
+):
     """
     returns cmd to escalate (e.g. sudo) and switch users (su) to run `cmd` as `switch_user` as necessary.
     If `switch_user` is neither the current user nor root, cmd will have to be flattened into a single string.
     A result might look like `['sudo', '--', 'su', '-s', '/bin/bash', '-c', cmd_as_a_string]`.
     """
     current_uid = os.getuid()
-    if pwd.getpwuid(current_uid).pw_name != switch_user:
-        if switch_user != 'root':
+    if pwd.getpwuid(current_uid).pw_name != switch_user or force_su:
+        if switch_user != 'root' or force_su:
             cmd = ['/bin/su', switch_user, '-s', '/bin/bash', '-c', flatten_shell_script(cmd, shell_quote_items=True)]
-        if current_uid != 0:  # in order to use `/bin/su`, we have to be root first.
+        if current_uid != 0 or force_elevate:  # in order to use `/bin/su`, we have to be root first.
             cmd = generate_cmd_elevated(cmd, elevation_method or ELEVATION_METHOD_DEFAULT)
 
     return cmd
