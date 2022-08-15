@@ -7,6 +7,7 @@ from shlex import quote as shell_quote
 from typing import Protocol, Union, Optional, Mapping
 from uuid import uuid4
 
+from exec import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash
 from config import config
 from constants import Arch, CHROOT_PATHS
 from distro.distro import get_base_distro, get_kupfer_local, RepoInfo
@@ -226,27 +227,15 @@ class Chroot(AbstractChroot):
             raise Exception(f'Chroot {self.name} is inactive, not running command! Hint: pass `fail_inactive=False`')
         if outer_env is None:
             outer_env = os.environ.copy()
-        env_cmd = ['/usr/bin/env'] + [f'{shell_quote(key)}={shell_quote(value)}' for key, value in inner_env.items()]
-        kwargs: dict = {
-            'env': outer_env,
-        }
-        if not attach_tty:
-            kwargs |= {'stdout': stdout} if stdout else {'capture_output': capture_output}
+        env_cmd = generate_env_cmd(inner_env)
 
         if not isinstance(script, str) and isinstance(script, list):
-            script = ' '.join(script)
+            script = flatten_shell_script(script, shell_quote_items=False, wrap_in_shell_quote=False)
         if cwd:
             script = f"cd {shell_quote(cwd)} && ( {script} )"
-        cmd = ['chroot', self.path] + env_cmd + [
-            '/bin/bash',
-            '-c',
-            script,
-        ]
-        logging.debug(f'{self.name}: Running cmd: "{cmd}"')
-        if attach_tty:
-            return subprocess.call(cmd, **kwargs)
-        else:
-            return subprocess.run(cmd, **kwargs)
+        cmd = flatten_shell_script(['chroot', self.path] + env_cmd + wrap_in_bash(script, flatten_result=False), shell_quote_items=True)
+
+        return run_root_cmd(cmd, env=outer_env, attach_tty=attach_tty, capture_output=capture_output, stdout=stdout)
 
     def mount_pkgbuilds(self, fail_if_mounted: bool = False) -> str:
         return self.mount(

@@ -4,6 +4,8 @@ import subprocess
 from shutil import which
 from typing import Optional, Union, Sequence
 
+from exec import run_cmd, run_root_cmd
+
 
 def programs_available(programs: Union[str, Sequence[str]]) -> bool:
     if type(programs) is str:
@@ -15,7 +17,7 @@ def programs_available(programs: Union[str, Sequence[str]]) -> bool:
 
 
 def umount(dest: str, lazy=False):
-    return subprocess.run(
+    return run_root_cmd(
         [
             'umount',
             '-c' + ('l' if lazy else ''),
@@ -33,7 +35,7 @@ def mount(src: str, dest: str, options: list[str] = ['bind'], fs_type: Optional[
     if fs_type:
         opts += ['-t', fs_type]
 
-    result = subprocess.run(
+    result = run_root_cmd(
         ['mount'] + opts + [
             src,
             dest,
@@ -46,7 +48,7 @@ def mount(src: str, dest: str, options: list[str] = ['bind'], fs_type: Optional[
 
 
 def check_findmnt(path: str):
-    result = subprocess.run(
+    result = run_root_cmd(
         [
             'findmnt',
             '-n',
@@ -59,8 +61,10 @@ def check_findmnt(path: str):
     return result.stdout.decode().strip()
 
 
-def git(cmd: list[str], dir='.', capture_output=False) -> subprocess.CompletedProcess:
-    return subprocess.run(['git'] + cmd, cwd=dir, capture_output=capture_output)
+def git(cmd: list[str], dir='.', capture_output=False, user: Optional[str] = None) -> subprocess.CompletedProcess:
+    result = run_cmd(['git'] + cmd, cwd=dir, capture_output=capture_output, switch_user=user)
+    assert isinstance(result, subprocess.CompletedProcess)
+    return result
 
 
 def log_or_exception(raise_exception: bool, msg: str, exc_class=Exception, log_level=logging.WARNING):
