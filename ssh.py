@@ -112,12 +112,12 @@ def copy_ssh_keys(root_dir: str, user: str):
 
     ssh_dir = os.path.join(root_dir, 'home', user, '.ssh')
     if not os.path.exists(ssh_dir):
-        os.makedirs(ssh_dir, exist_ok=True)
+        os.makedirs(ssh_dir, exist_ok=True, mode=0o700)
 
     with open(authorized_keys_file, 'a') as authorized_keys:
         for key in keys:
             pub = f'{key}.pub'
-            if not os.path.exists('pub'):
+            if not os.path.exists(pub):
                 logging.debug(f'Skipping key {key}: {pub} not found')
                 continue
             with open(pub, 'r') as file:
