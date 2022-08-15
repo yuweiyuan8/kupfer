@@ -13,6 +13,7 @@ from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
+from exec import run_root_cmd
 from packages import build_enable_qemu_binfmt, discover_packages, build_packages
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
@@ -34,11 +35,11 @@ def dd_image(input: str, output: str, blocksize='1M') -> CompletedProcess:
         'conv=sync,noerror',
     ]
     logging.debug(f'running dd cmd: {cmd}')
-    return subprocess.run(cmd)
+    return run_root_cmd(cmd)
 
 
 def partprobe(device: str):
-    return subprocess.run(['partprobe', device])
+    return run_root_cmd(['partprobe', device])
 
 
 def shrink_fs(loop_device: str, file: str, sector_size: int):
@@ -47,13 +48,13 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
     sectors_blocks_factor = 4096 // sector_size
     partprobe(loop_device)
     logging.debug(f"Checking filesystem at {loop_device}p2")
-    result = subprocess.run(['e2fsck', '-fy', f'{loop_device}p2'])
+    result = run_root_cmd(['e2fsck', '-fy', f'{loop_device}p2'])
     if result.returncode > 2:
         # https://man7.org/linux/man-pages/man8/e2fsck.8.html#EXIT_CODE
         raise Exception(f'Failed to e2fsck {loop_device}p2 with exit code {result.returncode}')
 
     logging.debug(f'Shrinking filesystem at {loop_device}p2')
-    result = subprocess.run(['resize2fs', '-M', f'{loop_device}p2'], capture_output=True)
+    result = run_root_cmd(['resize2fs', '-M', f'{loop_device}p2'], capture_output=True)
     if result.returncode != 0:
         print(result.stdout)
         print(result.stderr)
@@ -65,7 +66,7 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
 
     logging.debug(f'Shrinking partition at {loop_device}p2 to {sectors} sectors')
     child_proccess = subprocess.Popen(
-        ['fdisk', '-b', str(sector_size), loop_device],
+        ['sudo', 'fdisk', '-b', str(sector_size), loop_device],  # TODO: replace hardcoded 'sudo'
         stdin=subprocess.PIPE,
     )
     child_proccess.stdin.write('\n'.join([  # type: ignore
@@ -85,14 +86,14 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
     returncode = child_proccess.wait()
     if returncode == 1:
         # For some reason re-reading the partition table fails, but that is not a problem
-        subprocess.run(['partprobe'])
+        partprobe(loop_device)
     if returncode > 1:
         raise Exception(f'Failed to shrink partition size of {loop_device}p2 with fdisk')
 
     partprobe(loop_device)
 
     logging.debug(f'Finding end sector of partition at {loop_device}p2')
-    result = subprocess.run(['fdisk', '-b', str(sector_size), '-l', loop_device], capture_output=True)
+    result = run_root_cmd(['fdisk', '-b', str(sector_size), '-l', loop_device], capture_output=True)
     if result.returncode != 0:
         print(result.stdout)
         print(result.stderr)
@@ -111,7 +112,7 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
 
     logging.debug(f'({end_sector} + 1) sectors * {sector_size} bytes/sector = {end_size} bytes')
     logging.info(f'Truncating {file} to {end_size} bytes')
-    result = subprocess.run(['truncate', '-s', str(end_size), file])
+    result = run_root_cmd(['truncate', '-s', str(end_size), file])
     if result.returncode != 0:
         raise Exception(f'Failed to truncate {file}')
     partprobe(loop_device)
@@ -139,7 +140,7 @@ def get_image_path(device, flavour, img_type='full') -> str:
 
 def losetup_rootfs_image(image_path: str, sector_size: int) -> str:
     logging.debug(f'Creating loop device for {image_path} with sector size {sector_size}')
-    result = subprocess.run([
+    result = run_root_cmd([
         'losetup',
         '-f',
         '-b',
@@ -173,7 +174,7 @@ def losetup_rootfs_image(image_path: str, sector_size: int) -> str:
 
     def losetup_destroy():
         logging.debug(f'Destroying loop device {loop_device} for {image_path}')
-        subprocess.run(
+        run_root_cmd(
             [
                 'losetup',
                 '-d',
@@ -262,7 +263,7 @@ def partition_device(device: str):
     create_boot_partition = ['mkpart', 'primary', 'ext2', '0%', boot_partition_size]
     create_root_partition = ['mkpart', 'primary', boot_partition_size, '100%']
     enable_boot = ['set', '1', 'boot', 'on']
-    result = subprocess.run([
+    result = run_root_cmd([
         'parted',
         '--script',
         device,
@@ -285,7 +286,7 @@ def create_filesystem(device: str, blocksize: int = 4096, label=None, options=[]
         '-b',
         str(blocksize),
     ] + labels + [device]
-    result = subprocess.run(cmd)
+    result = run_root_cmd(cmd)
     if result.returncode != 0:
         raise Exception(f'Failed to create {fstype} filesystem on {device} with CMD: {cmd}')
 

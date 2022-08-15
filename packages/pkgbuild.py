@@ -97,6 +97,7 @@ def parse_pkgbuild(relative_pkg_dir: str, config: ConfigStateHolder) -> Sequence
     Since function may run in a different subprocess, we need to be passed the config via parameter
     """
     setup_logging(verbose=config.runtime['verbose'], log_setup=False)  # different thread needs log setup.
+    logging.info(f"Parsing PKGBUILD for {relative_pkg_dir}")
     pkgbuilds_dir = config.get_path('pkgbuilds')
     pkgdir = os.path.join(pkgbuilds_dir, relative_pkg_dir)
     filename = os.path.join(pkgdir, 'PKGBUILD')
