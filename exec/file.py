@@ -24,14 +24,15 @@ def try_native_filewrite(path: str, content: Union[str, bytes], chmod: Optional[
     return None
 
 
-def chown(path: str, user: Optional[Union[str, int]] = None, group: Optional[Union[str, int]] = None):
+def chown(path: str, user: Optional[Union[str, int]] = None, group: Optional[Union[str, int]] = None, recursive: bool = False):
     owner = ''
     if user is not None:
         owner += get_user_name(user)
     if group is not None:
         owner += f':{get_group_name(group)}'
     if owner:
-        result = run_root_cmd(["chown", owner, path])
+        cmd = ["chown"] + (['-R'] if recursive else [])
+        result = run_root_cmd(cmd + [owner, path])
         assert isinstance(result, subprocess.CompletedProcess)
         if result.returncode:
             raise Exception(f"Failed to change owner of '{path}' to '{owner}'")
