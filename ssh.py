@@ -2,11 +2,11 @@ from typing import Optional
 import logging
 import os
 import pathlib
-import subprocess
 import click
 
 from config import config
 from constants import SSH_COMMON_OPTIONS, SSH_DEFAULT_HOST, SSH_DEFAULT_PORT
+from exec import run_cmd
 
 
 @click.command(name='ssh')
@@ -44,7 +44,7 @@ def run_ssh_command(cmd: list[str] = [],
         '--',
     ] + cmd
     logging.debug(f"running cmd: {full_cmd}")
-    return subprocess.run(full_cmd)
+    return run_cmd(full_cmd)
 
 
 def scp_put_files(src: list[str], dst: str, user: str = None, host: str = SSH_DEFAULT_HOST, port: int = SSH_DEFAULT_PORT):
@@ -64,7 +64,7 @@ def scp_put_files(src: list[str], dst: str, user: str = None, host: str = SSH_DE
     ]
     logging.info(f"Copying files to {user}@{host}:{dst}:\n{src}")
     logging.debug(f"running cmd: {cmd}")
-    return subprocess.run(cmd)
+    return run_cmd(cmd)
 
 
 def find_ssh_keys():
@@ -95,7 +95,7 @@ def copy_ssh_keys(root_dir: str, user: str):
         create = click.confirm("Do you want me to generate an ssh key for you?", True)
         if not create:
             return
-        result = subprocess.run([
+        result = run_cmd([
             'ssh-keygen',
             '-f',
             os.path.join(pathlib.Path.home(), '.ssh', 'id_ed25519_kupfer'),
@@ -106,7 +106,7 @@ def copy_ssh_keys(root_dir: str, user: str):
             '-N',
             '',
         ])
-        if result.returncode != 0:
+        if result.returncode != 0:  # type: ignore
             logging.fatal("Failed to generate ssh key")
         keys = find_ssh_keys()
 
