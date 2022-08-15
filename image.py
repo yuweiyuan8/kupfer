@@ -13,7 +13,8 @@ from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
-from exec.cmd import run_root_cmd
+from exec.cmd import run_root_cmd, generate_cmd_su
+from exec.file import root_write_file
 from packages import build_enable_qemu_binfmt, discover_packages, build_packages
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
@@ -66,7 +67,7 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
 
     logging.debug(f'Shrinking partition at {loop_device}p2 to {sectors} sectors')
     child_proccess = subprocess.Popen(
-        ['sudo', 'fdisk', '-b', str(sector_size), loop_device],  # TODO: replace hardcoded 'sudo'
+        generate_cmd_su(['fdisk', '-b', str(sector_size), loop_device], switch_user='root'),  # type: ignore
         stdin=subprocess.PIPE,
     )
     child_proccess.stdin.write('\n'.join([  # type: ignore
@@ -332,8 +333,7 @@ def install_rootfs(
         'etc/hostname': profile['hostname'],
     }
     for target, content in files.items():
-        with open(os.path.join(chroot.path, target.lstrip('/')), 'w') as file:
-            file.write(content)
+        root_write_file(os.path.join(chroot.path, target.lstrip('/')), content)
     if post_cmds:
         result = chroot.run_cmd(' && '.join(post_cmds))
         assert isinstance(result, subprocess.CompletedProcess)

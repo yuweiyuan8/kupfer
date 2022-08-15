@@ -8,6 +8,7 @@ from typing import Protocol, Union, Optional, Mapping
 from uuid import uuid4
 
 from exec.cmd import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash
+from exec.file import root_write_file
 from config import config
 from constants import Arch, CHROOT_PATHS
 from distro.distro import get_base_distro, get_kupfer_local, RepoInfo
@@ -272,8 +273,7 @@ class Chroot(AbstractChroot):
         filename = 'makepkg' + (f'_cross_{target_arch}' if cross else '') + '.conf'
         makepkg_conf_path_relative = os.path.join('etc', filename)
         makepkg_conf_path = os.path.join(self.path, makepkg_conf_path_relative)
-        with open(makepkg_conf_path, 'w') as f:
-            f.write(makepkg_cross_conf)
+        root_write_file(makepkg_conf_path, makepkg_cross_conf)
         return makepkg_conf_path_relative
 
     def write_pacman_conf(self, check_space: Optional[bool] = None):
@@ -281,8 +281,7 @@ class Chroot(AbstractChroot):
             check_space = config.file['pacman']['check_space']
         os.makedirs(self.get_path('/etc'), exist_ok=True)
         conf_text = get_base_distro(self.arch).get_pacman_conf(self.extra_repos, check_space=check_space)
-        with open(self.get_path('etc/pacman.conf'), 'w') as file:
-            file.write(conf_text)
+        root_write_file(self.get_path('etc/pacman.conf'), conf_text)
 
     def create_user(
         self,

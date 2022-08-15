@@ -8,6 +8,7 @@ from config import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
 from distro.distro import get_kupfer_local
 from exec.cmd import run_root_cmd
+from exec.file import root_write_file, remove_file
 
 from .abstract import Chroot, get_chroot
 from .helpers import build_chroot_name
@@ -51,8 +52,7 @@ class BuildChroot(Chroot):
         with open(self.get_path('/usr/bin/makepkg'), 'r') as file:
             data = file.read()
         data = data.replace('EUID == 0', 'EUID == -1')
-        with open(self.get_path('/usr/bin/makepkg'), 'w') as file:
-            file.write(data)
+        root_write_file(self.get_path('/usr/bin/makepkg'), data)
 
         # configure makepkg
         self.write_makepkg_conf(self.arch, cross_chroot_relative=None, cross=False)
@@ -114,7 +114,7 @@ class BuildChroot(Chroot):
         rustc = os.path.join(native_chroot.path, 'usr/lib/crossdirect', target_arch, 'rustc')
         if os.path.exists(rustc):
             logging.debug('Disabling crossdirect rustc')
-            os.unlink(rustc)
+            remove_file(rustc)
 
         os.makedirs(native_mount, exist_ok=True)
         logging.debug(f'Mounting {native_chroot.name} to {native_mount}')

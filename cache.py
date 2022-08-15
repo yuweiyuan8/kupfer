@@ -1,9 +1,10 @@
-import shutil
 import click
 import os
-from config import config
-from wrapper import enforce_wrap
 import logging
+
+from config import config
+from exec.file import remove_file
+from wrapper import enforce_wrap
 
 PATHS = ['chroots', 'pacman', 'jumpdrive', 'packages', 'images']
 
@@ -37,7 +38,4 @@ def cmd_clean(paths: list[str], force=False):
             for file in os.listdir(dir):
                 path = os.path.join(dir, file)
                 logging.debug(f'Removing "{path_name}/{file}"')
-                if os.path.isdir(path):
-                    shutil.rmtree(path)
-                else:
-                    os.unlink(path)
+                remove_file(path, recursive=True)

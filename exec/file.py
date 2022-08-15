@@ -3,6 +3,7 @@ import os
 import stat
 import subprocess
 
+from shutil import rmtree
 from typing import Optional, Union
 
 from .cmd import run_root_cmd, elevation_noop, generate_cmd_su, wrap_in_bash, shell_quote
@@ -107,3 +108,14 @@ def root_write_file(*args, **kwargs):
     kwargs['user'] = 'root'
     kwargs['group'] = 'root'
     return write_file(*args, **kwargs)
+
+
+def remove_file(path: str, recursive=False):
+    try:
+        rm = rmtree if recursive else os.unlink
+        rm(path)  # type: ignore
+    except:
+        cmd = ['rm'] + (['-r'] if recursive else []) + [path]
+        rc = run_root_cmd(cmd).returncode
+        if rc:
+            raise Exception(f"Unable to remove {path}: cmd returned {rc}")

@@ -16,6 +16,7 @@ from binfmt import register as binfmt_register
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
 from exec.cmd import run_cmd, run_root_cmd
+from exec.file import remove_file
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import PackageInfo, get_kupfer_https, get_kupfer_local
 from ssh import run_ssh_command, scp_put_files
@@ -299,13 +300,13 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
             file_path,
             repo_dir,
         )
-        os.unlink(file_path)
+        remove_file(file_path)
 
     # clean up same name package from pacman cache
     cache_file = os.path.join(pacman_cache_dir, file_name)
     if os.path.exists(cache_file):
         logging.debug("Removing cached package file {cache_file}")
-        os.unlink(cache_file)
+        remove_file(cache_file)
     cmd = [
         'repo-add',
         '--remove',
@@ -323,11 +324,11 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
     for ext in ['db', 'files']:
         file = os.path.join(repo_dir, f'{repo_name}.{ext}')
         if os.path.exists(file + '.tar.xz'):
-            os.unlink(file)
+            remove_file(file)
             shutil.copyfile(file + '.tar.xz', file)
         old = file + '.tar.xz.old'
         if os.path.exists(old):
-            os.unlink(old)
+            remove_file(old)
 
 
 def strip_compression_extension(filename: str):
