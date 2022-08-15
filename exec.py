@@ -79,7 +79,7 @@ def run_cmd(
     stdout: Optional[int] = None,
     switch_user: Optional[str] = None,
     elevation_method: Optional[ElevationMethod] = None,
-) -> Union[int, subprocess.CompletedProcess]:
+) -> Union[subprocess.CompletedProcess, int]:
     "execute `script` as `switch_user`, elevating and su'ing as necessary"
     kwargs: dict = {}
     env_cmd = []
@@ -106,3 +106,7 @@ def run_cmd(
 def run_root_cmd(*kargs, **kwargs):
     kwargs['switch_user'] = 'root'
     return run_cmd(*kargs, **kwargs)
+
+
+def elevation_noop(**kwargs):
+    run_root_cmd('/bin/true', **kwargs)
