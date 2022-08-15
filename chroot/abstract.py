@@ -7,7 +7,7 @@ from shlex import quote as shell_quote
 from typing import Protocol, Union, Optional, Mapping
 from uuid import uuid4
 
-from exec import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash
+from exec.cmd import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash
 from config import config
 from constants import Arch, CHROOT_PATHS
 from distro.distro import get_base_distro, get_kupfer_local, RepoInfo

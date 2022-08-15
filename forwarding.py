@@ -1,7 +1,7 @@
 import click
 import logging
 
-from exec import run_root_cmd
+from exec.cmd import run_root_cmd
 from ssh import run_ssh_command
 from wrapper import check_programs_wrap
 

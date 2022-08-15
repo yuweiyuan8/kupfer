@@ -3,7 +3,7 @@
 import os
 import logging
 
-from exec import run_root_cmd
+from exec.cmd import run_root_cmd
 from utils import mount
 
 

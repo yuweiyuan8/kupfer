@@ -6,7 +6,7 @@ import subprocess
 from typing import Optional, Sequence
 
 from config import ConfigStateHolder
-from exec import run_cmd
+from exec.cmd import run_cmd
 from constants import Arch, MAKEPKG_CMD
 from distro.package import PackageInfo
 from logger import logging, setup_logging

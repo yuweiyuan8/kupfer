@@ -15,7 +15,7 @@ from typing import Iterable, Iterator, Any, Optional
 from binfmt import register as binfmt_register
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
-from exec import run_cmd, run_root_cmd
+from exec.cmd import run_cmd, run_root_cmd
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import PackageInfo, get_kupfer_https, get_kupfer_local
 from ssh import run_ssh_command, scp_put_files

@@ -6,7 +6,7 @@ import click
 
 from config import config
 from constants import SSH_COMMON_OPTIONS, SSH_DEFAULT_HOST, SSH_DEFAULT_PORT
-from exec import run_cmd
+from exec.cmd import run_cmd
 
 
 @click.command(name='ssh')

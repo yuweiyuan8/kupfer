@@ -7,7 +7,7 @@ from typing import Optional
 from config import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
 from distro.distro import get_kupfer_local
-from exec import run_root_cmd
+from exec.cmd import run_root_cmd
 
 from .abstract import Chroot, get_chroot
 from .helpers import build_chroot_name

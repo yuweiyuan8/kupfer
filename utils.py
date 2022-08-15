@@ -4,7 +4,7 @@ import subprocess
 from shutil import which
 from typing import Optional, Union, Sequence
 
-from exec import run_cmd, run_root_cmd
+from exec.cmd import run_cmd, run_root_cmd
 
 
 def programs_available(programs: Union[str, Sequence[str]]) -> bool:

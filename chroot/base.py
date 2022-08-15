@@ -5,7 +5,7 @@ from glob import glob
 from shutil import rmtree
 
 from constants import Arch
-from exec import run_root_cmd
+from exec.cmd import run_root_cmd
 
 from .abstract import Chroot, get_chroot
 from .helpers import base_chroot_name

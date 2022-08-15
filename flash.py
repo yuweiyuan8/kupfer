@@ -5,7 +5,7 @@ import click
 import tempfile
 
 from constants import FLASH_PARTS, LOCATIONS
-from exec import run_root_cmd
+from exec.cmd import run_root_cmd
 from fastboot import fastboot_flash
 from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, dump_aboot, dump_lk2nd, dump_qhypstub, get_device_and_flavour, get_image_name, get_image_path
 from wrapper import enforce_wrap

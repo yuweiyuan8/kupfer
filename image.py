@@ -13,7 +13,7 @@ from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
-from exec import run_root_cmd
+from exec.cmd import run_root_cmd
 from packages import build_enable_qemu_binfmt, discover_packages, build_packages
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
