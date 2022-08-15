@@ -1,11 +1,11 @@
 import atexit
 import shutil
 import os
-import subprocess
 import click
 import tempfile
 
 from constants import FLASH_PARTS, LOCATIONS
+from exec import run_root_cmd
 from fastboot import fastboot_flash
 from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, dump_aboot, dump_lk2nd, dump_qhypstub, get_device_and_flavour, get_image_name, get_image_path
 from wrapper import enforce_wrap
@@ -49,13 +49,12 @@ def cmd_flash(what: str, location: str):
                 if f'jumpdrive{location.split("-")[0]}' in sanitized_file:
                     path = os.path.realpath(os.path.join(dir, file))
                     partprobe(path)
-                    result = subprocess.run(['lsblk', path, '-o', 'SIZE'], capture_output=True)
+                    result = run_root_cmd(['lsblk', path, '-o', 'SIZE'], capture_output=True)
                     if result.returncode != 0:
                         raise Exception(f'Failed to lsblk {path}')
                     if result.stdout == b'SIZE\n  0B\n':
-                        raise Exception(
-                            f'Disk {path} has a size of 0B. That probably means it is not available (e.g. no microSD inserted or no microSD card slot installed in the device) or corrupt or defect'
-                        )
+                        raise Exception(f'Disk {path} has a size of 0B. That probably means it is not available (e.g. no'
+                                        'microSD inserted or no microSD card slot installed in the device) or corrupt or defect')
             if path == '':
                 raise Exception('Unable to discover Jumpdrive')
 
