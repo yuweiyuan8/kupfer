@@ -22,6 +22,18 @@ typecheck:
     reports:
       junit: mypy-report.xml
 
+pytest:
+  stage: check
+  image: archlinux
+  before_script:
+    - pacman -Sy --noconfirm --needed archlinux-keyring && pacman -Su --noconfirm python python-pip sudo git
+    - pip install pytest -r requirements.txt
+  script:
+    - script -e -c 'python -m pytest -v --junitxml=pytest-report.xml */test_*.py'
+  artifacts:
+    reports:
+      junit: pytest-report.xml
+
 build_docker:
   stage: build
   image: docker:latest
