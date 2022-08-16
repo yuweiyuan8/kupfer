@@ -30,7 +30,6 @@ def dd_image(input: str, output: str, blocksize='1M') -> CompletedProcess:
         f'if={input}',
         f'of={output}',
         f'bs={blocksize}',
-        'iflag=direct',
         'oflag=direct',
         'status=progress',
         'conv=sync,noerror',
