@@ -119,6 +119,18 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
     partprobe(loop_device)
 
 
+def losetup_destroy(loop_device):
+    logging.debug(f'Destroying loop device {loop_device}')
+    run_root_cmd(
+        [
+            'losetup',
+            '-d',
+            loop_device,
+        ],
+        stderr=subprocess.DEVNULL,
+    )
+
+
 def get_device_and_flavour(profile_name: Optional[str] = None) -> tuple[str, str]:
     config.enforce_config_loaded()
     profile = config.get_profile(profile_name)
@@ -150,8 +162,7 @@ def losetup_rootfs_image(image_path: str, sector_size: int) -> str:
         image_path,
     ])
     if result.returncode != 0:
-        logging.fatal(f'Failed to create loop device for {image_path}')
-        exit(1)
+        raise Exception(f'Failed to create loop device for {image_path}')
 
     logging.debug(f'Finding loop device for {image_path}')
 
@@ -159,8 +170,7 @@ def losetup_rootfs_image(image_path: str, sector_size: int) -> str:
     if result.returncode != 0:
         print(result.stdout)
         print(result.stderr)
-        logging.fatal('Failed to list loop devices')
-        exit(1)
+        raise Exception('Failed to list loop devices')
 
     data = json.loads(result.stdout.decode('utf-8'))
     loop_device = ''
@@ -173,18 +183,7 @@ def losetup_rootfs_image(image_path: str, sector_size: int) -> str:
         raise Exception(f'Failed to find loop device for {image_path}')
     partprobe(loop_device)
 
-    def losetup_destroy():
-        logging.debug(f'Destroying loop device {loop_device} for {image_path}')
-        run_root_cmd(
-            [
-                'losetup',
-                '-d',
-                loop_device,
-            ],
-            stderr=subprocess.DEVNULL,
-        )
-
-    atexit.register(losetup_destroy)
+    atexit.register(losetup_destroy, loop_device)
 
     return loop_device
 
