@@ -6,7 +6,7 @@ from constants import FLASH_PARTS, LOCATIONS
 from exec.cmd import run_root_cmd
 from exec.file import get_temp_dir
 from fastboot import fastboot_flash
-from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, dump_aboot, dump_lk2nd, dump_qhypstub, get_device_and_flavour, get_image_name, get_image_path
+from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, losetup_destroy, dump_aboot, dump_lk2nd, dump_qhypstub, get_device_and_flavour, get_image_name, get_image_path
 from wrapper import enforce_wrap
 
 ABOOT = FLASH_PARTS['ABOOT']
@@ -65,6 +65,7 @@ def cmd_flash(what: str, location: str):
         loop_device = losetup_rootfs_image(minimal_image_path, sector_size)
         partprobe(loop_device)
         shrink_fs(loop_device, minimal_image_path, sector_size)
+        losetup_destroy(loop_device)
 
         result = dd_image(input=minimal_image_path, output=path)
 
