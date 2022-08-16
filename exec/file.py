@@ -119,3 +119,19 @@ def remove_file(path: str, recursive=False):
         rc = run_root_cmd(cmd).returncode
         if rc:
             raise Exception(f"Unable to remove {path}: cmd returned {rc}")
+
+
+def makedir(path, user: Optional[str] = None, group: Optional[str] = None, parents: bool = True):
+    if not root_check_exists(path):
+        try:
+            if parents:
+                os.makedirs(path, exist_ok=True)
+            else:
+                os.mkdir(path)
+        except:
+            run_root_cmd(['mkdir'] + (['-p'] if parents else []) + [path])
+    chown(path, user, group)
+
+
+def root_makedir(path, parents: bool = True):
+    return makedir(path, user='root', group='root', parents=parents)
