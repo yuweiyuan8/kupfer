@@ -2,12 +2,11 @@ import atexit
 import os
 
 from typing import Optional
-from tempfile import mktemp
 
 from config import config
 from constants import Arch, BASE_PACKAGES
 from distro.distro import get_kupfer_local, get_kupfer_https
-from exec.file import makedir, root_makedir
+from exec.file import get_temp_dir, makedir, root_makedir
 from utils import check_findmnt
 
 from .base import BaseChroot
@@ -25,10 +24,8 @@ class DeviceChroot(BuildChroot):
         makedir(config.get_path('chroots'))
         root_makedir(self.get_path())
         if not self.copy_base:
-            name = mktemp()
-            pacman_conf_target = name
+            pacman_conf_target = os.path.join(get_temp_dir(register_cleanup=True), f'pacman-{self.name}.conf')
             self.write_pacman_conf(in_chroot=False, absolute_path=pacman_conf_target)
-            atexit.register(os.unlink, pacman_conf_target)
 
         clss.create_rootfs(self, reset, pacman_conf_target, active_previously)
 
