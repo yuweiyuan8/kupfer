@@ -135,3 +135,10 @@ def makedir(path, user: Optional[str] = None, group: Optional[str] = None, paren
 
 def root_makedir(path, parents: bool = True):
     return makedir(path, user='root', group='root', parents=parents)
+
+
+def symlink(source, target):
+    try:
+        os.symlink(source, target)
+    except:
+        run_root_cmd(['ln', '-s', source, target])

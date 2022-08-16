@@ -8,7 +8,7 @@ from config import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
 from distro.distro import get_kupfer_local
 from exec.cmd import run_root_cmd
-from exec.file import makedir, remove_file, root_makedir, root_write_file
+from exec.file import makedir, remove_file, root_makedir, root_write_file, symlink
 
 from .abstract import Chroot, get_chroot
 from .helpers import build_chroot_name
@@ -104,11 +104,11 @@ class BuildChroot(Chroot):
         for target, source in {cc_path: gcc, target_lib_dir: 'lib', target_include_dir: 'usr/include'}.items():
             if not os.path.exists(target):
                 logging.debug(f'Symlinking {source} at {target}')
-                os.symlink(source, target)
+                symlink(source, target)
         ld_so = os.path.basename(glob(f"{os.path.join(native_chroot.path, 'usr', 'lib', 'ld-linux-')}*")[0])
         ld_so_target = os.path.join(target_lib_dir, ld_so)
         if not os.path.islink(ld_so_target):
-            os.symlink(os.path.join('/native', 'usr', 'lib', ld_so), ld_so_target)
+            symlink(os.path.join('/native', 'usr', 'lib', ld_so), ld_so_target)
         else:
             logging.debug(f'ld-linux.so symlink already exists, skipping for {self.name}')
 
