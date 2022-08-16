@@ -1,14 +1,16 @@
 import pytest
 
 import os
-import tempfile
+import stat
 
 from typing import Union, Generator
 from dataclasses import dataclass
 
 from .cmd import run_root_cmd
-from .file import write_file, chown
+from .file import chmod, chown, get_temp_dir, write_file
 from utils import get_gid, get_uid
+
+TEMPDIR_MODE = 0o755
 
 
 @dataclass
@@ -17,8 +19,8 @@ class TempdirFillInfo():
     files: dict[str, str]
 
 
-def get_tempdir():
-    d = tempfile.mkdtemp()
+def _get_tempdir():
+    d = get_temp_dir(register_cleanup=False, mode=TEMPDIR_MODE)
     assert os.path.exists(d)
     return d
 
@@ -35,15 +37,21 @@ def create_file(filepath, owner='root', group='root'):
 
 @pytest.fixture
 def tempdir():
-    d = get_tempdir()
+    d = _get_tempdir()
     yield d
     # cleanup, gets run after the test since we yield above
     remove_dir(d)
 
 
+def test_get_tempdir(tempdir):
+    mode = os.stat(tempdir).st_mode
+    assert stat.S_ISDIR(mode)
+    assert stat.S_IMODE(mode) == TEMPDIR_MODE
+
+
 @pytest.fixture
 def tempdir_filled() -> Generator[TempdirFillInfo, None, None]:
-    d = get_tempdir()
+    d = _get_tempdir()
     contents = {
         'rootfile': {
             'owner': 'root',
@@ -73,6 +81,10 @@ def verify_ownership(filepath, user: Union[str, int], group: Union[str, int]):
     assert fstat.st_gid == gid
 
 
+def verify_mode(filepath, mode: int = TEMPDIR_MODE):
+    assert stat.S_IMODE(os.stat(filepath).st_mode) == mode
+
+
 def verify_content(filepath, content):
     assert os.path.exists(filepath)
     with open(filepath, 'r') as f:
@@ -86,6 +98,13 @@ def test_chown(tempdir: str, user: str, group: str):
     target_gid = get_gid(group)
     chown(tempdir, target_uid, target_gid)
     verify_ownership(tempdir, target_uid, target_gid)
+
+
+@pytest.mark.parametrize("mode", [0, 0o700, 0o755, 0o600, 0o555])
+def test_chmod(tempdir_filled, mode: int):
+    for filepath in tempdir_filled.files.values():
+        chmod(filepath, mode)
+        verify_mode(filepath, mode)
 
 
 def test_tempdir_filled_fixture(tempdir_filled: TempdirFillInfo):
@@ -133,7 +152,6 @@ def test_write_new_file_user(tempdir: str):
 def test_write_new_file_user_in_root_dir(tempdir: str):
     assert os.path.exists(tempdir)
     chown(tempdir, user='root', group='root')
-    run_root_cmd(['chmod', '755', tempdir])
     verify_ownership(tempdir, 'root', 'root')
     test_write_new_file_user(tempdir)
 

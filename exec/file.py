@@ -1,9 +1,11 @@
+import atexit
 import logging
 import os
 import stat
 import subprocess
 
 from shutil import rmtree
+from tempfile import mkdtemp
 from typing import Optional, Union
 
 from .cmd import run_root_cmd, elevation_noop, generate_cmd_su, wrap_in_bash, shell_quote
@@ -39,6 +41,25 @@ def chown(path: str, user: Optional[Union[str, int]] = None, group: Optional[Uni
             raise Exception(f"Failed to change owner of '{path}' to '{owner}'")
 
 
+def chmod(path, mode: Union[int, str] = 0o0755, force_sticky=True):
+    if not isinstance(mode, str):
+        octal = oct(mode)[2:]
+    else:
+        octal = mode
+    assert octal.isnumeric()
+    octal = octal.rjust(3, '0')
+    if force_sticky:
+        octal = octal.rjust(4, '0')
+    try:
+        os.chmod(path, mode=octal)  # type: ignore
+    except:
+        cmd = ["chmod", octal, path]
+        result = run_root_cmd(cmd)
+        assert isinstance(result, subprocess.CompletedProcess)
+        if result.returncode:
+            raise Exception(f"Failed to set mode of '{path}' to '{chmod}'")
+
+
 def root_check_exists(path):
     return os.path.exists(path) or run_root_cmd(['[', '-e', path, ']']).returncode == 0
 
@@ -55,7 +76,7 @@ def write_file(
     user: Optional[str] = None,
     group: Optional[str] = None,
 ):
-    chmod = ''
+    chmod_mode = ''
     chown_user = get_user_name(user) if user else None
     chown_group = get_group_name(group) if group else None
     fstat: os.stat_result
@@ -74,8 +95,8 @@ def write_file(
         if not mode.isnumeric():
             raise Exception(f"Unknown file mode '{mode}' (must be numeric): {path}")
         if not exists or stat.filemode(int(mode, 8)) != stat.filemode(fstat.st_mode):
-            chmod = mode
-    failed = try_native_filewrite(path, content, chmod)
+            chmod_mode = mode
+    failed = try_native_filewrite(path, content, chmod_mode)
     if exists or failed:
         if failed:
             try:
@@ -95,11 +116,8 @@ def write_file(
             except Exception as ex:
                 logging.fatal(f"Writing to file '{path}' with elevated privileges failed")
                 raise ex
-        if chmod:
-            result = run_root_cmd(["chmod", chmod, path])
-            assert isinstance(result, subprocess.CompletedProcess)
-            if result.returncode:
-                raise Exception(f"Failed to set mode of '{path}' to '{chmod}'")
+        if chmod_mode:
+            chmod(path, chmod_mode)
 
     chown(path, chown_user, chown_group)
 
@@ -142,3 +160,12 @@ def symlink(source, target):
         os.symlink(source, target)
     except:
         run_root_cmd(['ln', '-s', source, target])
+
+
+def get_temp_dir(register_cleanup=True, mode: int = 0o0755):
+    "create a new tempdir and sanitize ownership so root can access user files as god intended"
+    t = mkdtemp()
+    chmod(t, mode)
+    if register_cleanup:
+        atexit.register(remove_file, t, recursive=True)
+    return t
