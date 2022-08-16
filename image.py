@@ -113,7 +113,7 @@ def shrink_fs(loop_device: str, file: str, sector_size: int):
 
     logging.debug(f'({end_sector} + 1) sectors * {sector_size} bytes/sector = {end_size} bytes')
     logging.info(f'Truncating {file} to {end_size} bytes')
-    result = run_root_cmd(['truncate', '-s', str(end_size), file])
+    result = subprocess.run(['truncate', '-s', str(end_size), file])
     if result.returncode != 0:
         raise Exception(f'Failed to truncate {file}')
     partprobe(loop_device)
