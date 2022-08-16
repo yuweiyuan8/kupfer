@@ -1,11 +1,14 @@
 import atexit
 import os
 
+from typing import Optional
+from tempfile import mktemp
+
+from config import config
 from constants import Arch, BASE_PACKAGES
 from distro.distro import get_kupfer_local, get_kupfer_https
 from exec.file import makedir, root_makedir
 from utils import check_findmnt
-from typing import Optional
 
 from .base import BaseChroot
 from .build import BuildChroot
@@ -18,6 +21,14 @@ class DeviceChroot(BuildChroot):
 
     def create_rootfs(self, reset, pacman_conf_target, active_previously):
         clss = BuildChroot if self.copy_base else BaseChroot
+
+        makedir(config.get_path('chroots'))
+        root_makedir(self.get_path())
+        if not self.copy_base:
+            name = mktemp()
+            pacman_conf_target = name
+            self.write_pacman_conf(in_chroot=False, absolute_path=pacman_conf_target)
+            atexit.register(os.unlink, pacman_conf_target)
 
         clss.create_rootfs(self, reset, pacman_conf_target, active_previously)
 

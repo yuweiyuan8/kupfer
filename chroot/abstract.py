@@ -277,12 +277,27 @@ class Chroot(AbstractChroot):
         root_write_file(makepkg_conf_path, makepkg_cross_conf)
         return makepkg_conf_path_relative
 
-    def write_pacman_conf(self, check_space: Optional[bool] = None):
+    def write_pacman_conf(self, check_space: Optional[bool] = None, in_chroot: bool = True, absolute_path: str = None):
+        user = None
+        group = None
         if check_space is None:
             check_space = config.file['pacman']['check_space']
-        os.makedirs(self.get_path('/etc'), exist_ok=True)
-        conf_text = get_base_distro(self.arch).get_pacman_conf(self.extra_repos, check_space=check_space)
-        root_write_file(self.get_path('etc/pacman.conf'), conf_text)
+        if not absolute_path:
+            path = self.get_path('/etc')
+            root_makedir(path)
+            absolute_path = os.path.join(path, 'pacman.conf')
+            user = 'root'
+            group = 'root'
+        repos = deepcopy(self.extra_repos)
+        if not in_chroot:
+            for repo in repos.values():
+                repo.url_template = repo.url_template.replace(
+                    f'file://{CHROOT_PATHS["packages"]}',
+                    f'file://{config.get_path("packages")}',
+                    1,
+                )
+        conf_text = get_base_distro(self.arch).get_pacman_conf(repos, check_space=check_space)
+        write_file(absolute_path, conf_text, user=user, group=group)
 
     def create_user(
         self,
