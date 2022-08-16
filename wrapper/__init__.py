@@ -42,6 +42,7 @@ def check_programs_wrap(programs):
 
 
 nowrapper_option = click.option(
+    '-W',
     '--no-wrapper',
     'no_wrapper',
     is_flag=True,
