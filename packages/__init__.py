@@ -710,14 +710,16 @@ def build_enable_qemu_binfmt(arch: Arch, repo: dict[str, Pkgbuild] = None):
     if arch not in ARCHES:
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
     logging.info('Installing qemu-user (building if necessary)')
+    native = config.runtime['arch']
+    if arch == native:
+        return
     enforce_wrap()
     if not repo:
         repo = discover_packages()
-    native = config.runtime['arch']
+
     # build qemu-user, binfmt, crossdirect
-    chroot = setup_build_chroot(native)
     build_packages_by_paths(
-        ['cross/' + pkg for pkg in CROSSDIRECT_PKGS],
+        CROSSDIRECT_PKGS,
         native,
         repo,
         try_download=True,
@@ -725,7 +727,9 @@ def build_enable_qemu_binfmt(arch: Arch, repo: dict[str, Pkgbuild] = None):
         enable_crossdirect=False,
         enable_ccache=False,
     )
-    run_root_cmd(['pacman', '-Syy', '--noconfirm', '--needed', '--config', os.path.join(chroot.path, 'etc/pacman.conf')] + QEMU_BINFMT_PKGS)
+    crossrepo = get_kupfer_local(native, in_chroot=False, scan=True).repos['cross'].packages
+    pkgfiles = [os.path.join(crossrepo[pkg].resolved_url.split('file://')[1]) for pkg in QEMU_BINFMT_PKGS]  # type: ignore
+    run_root_cmd(['pacman', '-U', '--noconfirm', '--needed'] + pkgfiles)
     if arch != native:
         binfmt_register(arch)
 
