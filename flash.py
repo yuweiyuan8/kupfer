@@ -1,11 +1,10 @@
-import atexit
 import shutil
 import os
 import click
-import tempfile
 
 from constants import FLASH_PARTS, LOCATIONS
 from exec.cmd import run_root_cmd
+from exec.file import get_temp_dir
 from fastboot import fastboot_flash
 from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, dump_aboot, dump_lk2nd, dump_qhypstub, get_device_and_flavour, get_image_name, get_image_path
 from wrapper import enforce_wrap
@@ -58,13 +57,8 @@ def cmd_flash(what: str, location: str):
             if path == '':
                 raise Exception('Unable to discover Jumpdrive')
 
-        minimal_image_dir = tempfile.gettempdir()
+        minimal_image_dir = get_temp_dir(register_cleanup=True)
         minimal_image_path = os.path.join(minimal_image_dir, f'minimal-{device_image_name}')
-
-        def clean_dir():
-            shutil.rmtree(minimal_image_dir)
-
-        atexit.register(clean_dir)
 
         shutil.copyfile(device_image_path, minimal_image_path)
 
