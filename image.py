@@ -6,7 +6,7 @@ import subprocess
 import click
 import logging
 from signal import pause
-from subprocess import run, CompletedProcess
+from subprocess import CompletedProcess
 from typing import Optional
 
 from chroot.device import DeviceChroot, get_device_chroot
@@ -210,8 +210,7 @@ def dump_aboot(image_path: str) -> str:
         f'dump /aboot.img {path}',
     ])
     if result.returncode != 0:
-        logging.fatal('Failed to dump aboot.img')
-        exit(1)
+        raise Exception('Failed to dump aboot.img')
     return path
 
 
@@ -227,8 +226,7 @@ def dump_lk2nd(image_path: str) -> str:
         f'dump /lk2nd.img {path}',
     ])
     if result.returncode != 0:
-        logging.fatal('Failed to dump lk2nd.img')
-        exit(1)
+        raise Exception('Failed to dump lk2nd.img')
     return path
 
 
@@ -241,8 +239,7 @@ def dump_qhypstub(image_path: str) -> str:
         f'dump /qhypstub.bin {path}',
     ])
     if result.returncode != 0:
-        logging.fatal('Failed to dump qhypstub.bin')
-        exit(1)
+        raise Exception('Failed to dump qhypstub.bin')
     return path
 
 
@@ -346,7 +343,8 @@ def install_rootfs(
     chroot.deactivate()
 
     logging.debug(f'Unmounting rootfs at "{chroot.path}"')
-    res = run(['umount', chroot.path])
+    res = run_root_cmd(['umount', chroot.path])
+    assert isinstance(res, CompletedProcess)
     logging.debug(f'rc: {res.returncode}')
 
 
