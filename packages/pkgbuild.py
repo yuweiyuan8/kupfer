@@ -90,6 +90,7 @@ class SubPkgbuild(Pkgbuild):
         self.path = pkgbase.path
         self.pkgver = pkgbase.pkgver
         self.pkgrel = pkgbase.pkgrel
+        self.update_version()
 
 
 def parse_pkgbuild(relative_pkg_dir: str, config: ConfigStateHolder) -> Sequence[Pkgbuild]:
