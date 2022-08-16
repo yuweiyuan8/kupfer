@@ -5,15 +5,13 @@ autoflake_args=('--recursive' '--remove-unused-variables' '--remove-all-unused-i
 
 format() {
     files=("$@")
-    if [[ -z "${files[@]}" ]]; then
+    if [[ -z "${files[*]}" ]]; then
         files=(".")
     fi
 
     yapf "${yapf_args[@]}"  "${files[@]}"
     autoflake "${autoflake_args[@]}" "${files[@]}"
 }
-
-
 
 
 if [[ "$1" == "--check" ]]; then

@@ -29,7 +29,7 @@ pytest:
     - pacman -Sy --noconfirm --needed archlinux-keyring && pacman -Su --noconfirm python python-pip sudo git
     - pip install pytest -r requirements.txt
   script:
-    - script -e -c 'python -m pytest -v --junitxml=pytest-report.xml */test_*.py'
+    - script -e -c './pytest.sh'
   artifacts:
     reports:
       junit: pytest-report.xml
