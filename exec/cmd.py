@@ -82,9 +82,10 @@ def run_cmd(
     attach_tty: bool = False,
     capture_output: bool = False,
     cwd: Optional[str] = None,
-    stdout: Optional[int] = None,
     switch_user: Optional[str] = None,
     elevation_method: Optional[ElevationMethod] = None,
+    stdout: Optional[int] = None,
+    stderr=None,
 ) -> Union[subprocess.CompletedProcess, int]:
     "execute `script` as `switch_user`, elevating and su'ing as necessary"
     kwargs: dict = {}
@@ -94,6 +95,8 @@ def run_cmd(
         kwargs['env'] = env
     if not attach_tty:
         kwargs |= {'stdout': stdout} if stdout else {'capture_output': capture_output}
+        if stderr:
+            kwargs['stderr'] = stderr
 
     script = flatten_shell_script(script)
     if cwd:
