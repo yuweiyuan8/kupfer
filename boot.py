@@ -4,6 +4,7 @@ import click
 
 from config import config
 from constants import BOOT_STRATEGIES, FLASH_PARTS, FASTBOOT, JUMPDRIVE, JUMPDRIVE_VERSION
+from exec.file import makedir
 from fastboot import fastboot_boot, fastboot_erase_dtbo
 from image import get_device_and_flavour, losetup_rootfs_image, get_image_path, dump_aboot, dump_lk2nd
 from wrapper import enforce_wrap
@@ -29,7 +30,7 @@ def cmd_boot(type):
         if type == JUMPDRIVE:
             file = f'boot-{device}.img'
             path = os.path.join(config.get_path('jumpdrive'), file)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
+            makedir(os.path.dirname(path))
             if not os.path.exists(path):
                 urllib.request.urlretrieve(f'https://github.com/dreemurrs-embedded/Jumpdrive/releases/download/{JUMPDRIVE_VERSION}/{file}', path)
         else:

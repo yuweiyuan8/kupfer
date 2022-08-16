@@ -8,7 +8,7 @@ from typing import Protocol, Union, Optional, Mapping
 from uuid import uuid4
 
 from exec.cmd import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash
-from exec.file import root_write_file
+from exec.file import makedir, root_makedir, root_write_file, write_file
 from config import config
 from constants import Arch, CHROOT_PATHS
 from distro.distro import get_base_distro, get_kupfer_local, RepoInfo
@@ -140,7 +140,7 @@ class Chroot(AbstractChroot):
         options=['bind'],
         fs_type: str = None,
         fail_if_mounted: bool = True,
-        makedir: bool = True,
+        mkdir: bool = True,
         strict_cache_consistency: bool = False,
     ):
         """returns the absolute path `relative_target` was mounted at"""
@@ -160,8 +160,8 @@ class Chroot(AbstractChroot):
         else:
             if pseudo_absolute in self.active_mounts:
                 log_or_exc(f'{self.name}: Mount {pseudo_absolute} was in active_mounts but not actually mounted. ({absolute_destination})')
-            if makedir and os.path.isdir(absolute_source):
-                os.makedirs(absolute_destination, exist_ok=True)
+            if mkdir and os.path.isdir(absolute_source):
+                root_makedir(absolute_destination)
             result = mount(absolute_source, absolute_destination, options=options, fs_type=fs_type, register_unmount=False)
             if result.returncode != 0:
                 raise Exception(f'{self.name}: failed to mount {absolute_source} to {absolute_destination}')
@@ -248,8 +248,8 @@ class Chroot(AbstractChroot):
     def mount_pacman_cache(self, fail_if_mounted: bool = False) -> str:
         arch_cache = os.path.join(config.get_path('pacman'), self.arch)
         rel_target = os.path.join(CHROOT_PATHS['pacman'].lstrip('/'), self.arch)
-        for dir in [arch_cache, self.get_path(rel_target)]:
-            os.makedirs(dir, exist_ok=True)
+        makedir(arch_cache)
+        root_makedir(self.get_path(rel_target))
         return self.mount(
             arch_cache,
             rel_target,
@@ -273,6 +273,7 @@ class Chroot(AbstractChroot):
         filename = 'makepkg' + (f'_cross_{target_arch}' if cross else '') + '.conf'
         makepkg_conf_path_relative = os.path.join('etc', filename)
         makepkg_conf_path = os.path.join(self.path, makepkg_conf_path_relative)
+        root_makedir(self.get_path('/etc'))
         root_write_file(makepkg_conf_path, makepkg_cross_conf)
         return makepkg_conf_path_relative
 

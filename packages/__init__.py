@@ -16,7 +16,7 @@ from binfmt import register as binfmt_register
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
 from exec.cmd import run_cmd, run_root_cmd
-from exec.file import remove_file
+from exec.file import makedir, remove_file
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import PackageInfo, get_kupfer_https, get_kupfer_local
 from ssh import run_ssh_command, scp_put_files
@@ -80,12 +80,12 @@ def init_pkgbuilds(interactive=False):
 def init_prebuilts(arch: Arch, dir: str = None):
     """Ensure that all `constants.REPOSITORIES` inside `dir` exist"""
     prebuilts_dir = dir or config.get_package_dir(arch)
-    os.makedirs(prebuilts_dir, exist_ok=True)
+    makedir(prebuilts_dir)
     for repo in REPOSITORIES:
         repo_dir = os.path.join(prebuilts_dir, repo)
         if not os.path.exists(repo_dir):
             logging.info(f"Creating local repo {repo} ({arch})")
-            os.makedirs(repo_dir, exist_ok=True)
+            makedir(repo_dir)
         for ext1 in ['db', 'files']:
             for ext2 in ['', '.tar.xz']:
                 if not os.path.exists(os.path.join(prebuilts_dir, repo, f'{repo}.{ext1}{ext2}')):
@@ -293,7 +293,7 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
     file_name = os.path.basename(file_path)
     target_file = os.path.join(repo_dir, file_name)
 
-    os.makedirs(repo_dir, exist_ok=True)
+    makedir(repo_dir)
     if file_path != target_file:
         logging.debug(f'moving {file_path} to {target_file} ({repo_dir})')
         shutil.copy(
@@ -391,7 +391,7 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
     assert url
     try:
         logging.info(f"Trying to download package {url}")
-        os.makedirs(os.path.dirname(dest_file_path), exist_ok=True)
+        makedir(os.path.dirname(dest_file_path))
         with urlopen(url) as fsrc, open(dest_file_path, 'wb') as fdst:
             copyfileobj(fsrc, fdst)
             logging.info(f"{filename} downloaded from repos")

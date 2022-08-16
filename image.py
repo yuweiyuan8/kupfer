@@ -14,7 +14,7 @@ from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
-from exec.file import root_write_file
+from exec.file import root_write_file, root_makedir, makedir
 from packages import build_enable_qemu_binfmt, discover_packages, build_packages
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
@@ -195,7 +195,7 @@ def mount_chroot(rootfs_source: str, boot_src: str, chroot: DeviceChroot):
     chroot.mount_rootfs(rootfs_source)
     assert (os.path.ismount(chroot.path))
 
-    os.makedirs(chroot.get_path('boot'), exist_ok=True)
+    root_makedir(chroot.get_path('boot'))
 
     logging.debug(f'Mounting {boot_src} at {chroot.path}/boot')
     chroot.mount(boot_src, '/boot', options=['defaults'])
@@ -409,7 +409,7 @@ def cmd_build(profile_name: str = None,
 
     image_path = block_target or get_image_path(device, flavour)
 
-    os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    makedir(os.path.dirname(image_path))
 
     logging.info(f'Creating new file at {image_path}')
     create_img_file(image_path, f"{rootfs_size_mb + size_extra_mb}M")

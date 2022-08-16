@@ -6,6 +6,8 @@ from shutil import rmtree
 
 from constants import Arch
 from exec.cmd import run_root_cmd
+from exec.file import makedir, root_makedir
+from config import config
 
 from .abstract import Chroot, get_chroot
 from .helpers import base_chroot_name
@@ -20,6 +22,8 @@ class BaseChroot(Chroot):
             logging.info(f'Resetting {self.name}')
             for dir in glob(os.path.join(self.path, '*')):
                 rmtree(dir)
+        makedir(config.get_path('chroots'))
+        root_makedir(self.get_path())
 
         self.write_pacman_conf()
         self.mount_pacman_cache()

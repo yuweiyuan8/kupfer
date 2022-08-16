@@ -3,6 +3,7 @@ import os
 
 from constants import Arch, BASE_PACKAGES
 from distro.distro import get_kupfer_local, get_kupfer_https
+from exec.file import makedir, root_makedir
 from utils import check_findmnt
 from typing import Optional
 
@@ -36,7 +37,7 @@ class DeviceChroot(BuildChroot):
                 raise Exception(f'{self.name}: There is already something mounted at {self.path}, not mounting over it.')
             if os.path.exists(os.path.join(self.path, 'usr/bin')):
                 raise Exception(f'{self.name}: {self.path}/usr/bin exists, not mounting over existing rootfs.')
-        os.makedirs(self.path, exist_ok=True)
+        makedir(self.path)
         atexit.register(self.deactivate)
         self.mount(source_path, '/', fs_type=fs_type, options=options)
 

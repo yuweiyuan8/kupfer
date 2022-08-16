@@ -8,7 +8,7 @@ from config import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
 from distro.distro import get_kupfer_local
 from exec.cmd import run_root_cmd
-from exec.file import root_write_file, remove_file
+from exec.file import makedir, remove_file, root_makedir, root_write_file
 
 from .abstract import Chroot, get_chroot
 from .helpers import build_chroot_name
@@ -20,6 +20,8 @@ class BuildChroot(Chroot):
     copy_base: bool = True
 
     def create_rootfs(self, reset: bool, pacman_conf_target: str, active_previously: bool):
+        makedir(config.get_path('chroots'))
+        root_makedir(self.get_path())
         if reset or not os.path.exists(self.get_path('usr/bin')):
             base_chroot = get_base_chroot(self.arch)
             if base_chroot == self:
@@ -116,7 +118,7 @@ class BuildChroot(Chroot):
             logging.debug('Disabling crossdirect rustc')
             remove_file(rustc)
 
-        os.makedirs(native_mount, exist_ok=True)
+        root_makedir(native_mount)
         logging.debug(f'Mounting {native_chroot.name} to {native_mount}')
         self.mount(native_chroot.path, 'native', fail_if_mounted=fail_if_mounted)
         return native_mount
