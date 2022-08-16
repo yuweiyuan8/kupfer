@@ -390,6 +390,8 @@ def prompt_config(
     whether the result is different, considering empty strings and None equal to each other.
     """
 
+    original_default = default
+
     def true_or_zero(to_check) -> bool:
         """returns true if the value is truthy or int(0)"""
         zero = 0  # compiler complains about 'is with literal' otherwise
@@ -411,7 +413,7 @@ def prompt_config(
         text = click.style(text, bold=True)
 
     result = click.prompt(text, type=field_type, default=default, value_proc=value_conv, show_default=True)  # type: ignore
-    changed = (result != default) and (true_or_zero(default) or true_or_zero(result))
+    changed = result != (original_default if field_type == list else default) and (true_or_zero(default) or true_or_zero(result))
     if changed and echo_changes:
         print(f'value changed: "{text}" = "{result}"')
 
