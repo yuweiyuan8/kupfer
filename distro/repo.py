@@ -67,6 +67,9 @@ class Repo(RepoInfo):
         if scan:
             self.scan()
 
+    def __repr__(self):
+        return f'<Repo:{self.name}:{self.arch}:{self.url_template}>'
+
     def config_snippet(self) -> str:
         options = {'Server': self.url_template} | self.options
         return ('[%s]\n' % self.name) + '\n'.join([f"{key} = {value}" for key, value in options.items()])
