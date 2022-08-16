@@ -45,6 +45,6 @@ def cmd_forwarding():
         click.Abort('Failed set iptables rule')
 
     logging.info("Setting default route on device via ssh")
-    result = run_ssh_command(cmd=['sudo -S route add default gw 172.16.42.2'])
+    result = run_ssh_command(cmd=['sudo -S route add default gw 172.16.42.2'], alloc_tty=True)
     if result.returncode != 0:
         click.Abort('Failed to add gateway over ssh')

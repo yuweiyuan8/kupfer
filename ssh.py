@@ -16,14 +16,14 @@ from exec.cmd import run_cmd
 @click.option('--port', '-p', help='the SSH port', type=int, default=SSH_DEFAULT_PORT)
 def cmd_ssh(cmd: list[str], user: str, host: str, port: int):
     """Establish SSH connection to device"""
-    run_ssh_command(list(cmd), user=user, host=host, port=port)
+    run_ssh_command(list(cmd), user=user, host=host, port=port, alloc_tty=True)
 
 
 def run_ssh_command(cmd: list[str] = [],
                     user: Optional[str] = None,
                     host: str = SSH_DEFAULT_HOST,
                     port: int = SSH_DEFAULT_PORT,
-                    alloc_tty: bool = False):
+                    alloc_tty: bool = True):
     if not user:
         user = config.get_profile()['username']
     keys = find_ssh_keys()
@@ -34,13 +34,15 @@ def run_ssh_command(cmd: list[str] = [],
         extra_args += ['-v']
     if alloc_tty:
         extra_args += ['-t']
-    logging.info(f'Opening SSH connection to {(user + "@") if user else ""}{host} ({port})')
+    hoststr = f'{(user + "@") if user else ""}{host}'
+    logging.info(f'Opening SSH connection to {hoststr} ({port})')
+    logging.debug(f"ssh: trying to run {cmd} on {hoststr}")
     full_cmd = [
         'ssh',
     ] + extra_args + SSH_COMMON_OPTIONS + [
         '-p',
         str(port),
-        f'{user}@{host}',
+        hoststr,
         '--',
     ] + cmd
     logging.debug(f"running cmd: {full_cmd}")
