@@ -278,7 +278,7 @@ class ConfigStateHolder:
     file_state: ConfigLoadState
     _profile_cache: dict[str, Profile]
 
-    def __init__(self, runtime_conf={}, file_conf_path: Optional[str] = None, file_conf_base: dict = {}):
+    def __init__(self, file_conf_path: Optional[str] = None, runtime_conf={}, file_conf_base: dict = {}):
         """init a stateholder, optionally loading `file_conf_path`"""
         self.file_state = ConfigLoadState()
         self.runtime = CONFIG_RUNTIME_DEFAULTS.copy()
@@ -299,6 +299,7 @@ class ConfigStateHolder:
         self.file_state.load_finished = True
 
     def is_loaded(self) -> bool:
+        "returns True if a file was **sucessfully** loaded"
         return self.file_state.load_finished and self.file_state.exception is None
 
     def enforce_config_loaded(self):
