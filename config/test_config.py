@@ -5,8 +5,9 @@ from tempfile import mktemp, gettempdir as get_system_tempdir
 import toml
 from typing import Optional
 
-from config import CONFIG_DEFAULTS, ConfigStateHolder, PROFILE_DEFAULTS
+from config.profile import PROFILE_DEFAULTS
 from config.scheme import Config, Profile
+from config.state import CONFIG_DEFAULTS, ConfigStateHolder
 
 
 def get_filename():
