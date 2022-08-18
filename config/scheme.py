@@ -52,7 +52,7 @@ class DataClass(Munch):
                 raise Exception(f'Unknown key "{key}"')
             else:
                 if isinstance(value, dict) and not isinstance(value, Munch):
-                    value = DataClass.fromDict(value)
+                    value = Munch.fromDict(value)
             results[key] = value
         if values:
             if validate:
@@ -129,6 +129,19 @@ class ProfilesSection(DataClass):
     current: str
     default: Profile
 
+    @classmethod
+    def transform(cls, values: Mapping[str, Any], validate: bool = True):
+        results = {}
+        for k, v in values.items():
+            if k == 'current':
+                results[k] = v
+                continue
+            results[k] = Profile.fromDict(v, validate=True)
+        return results
+
+    def update(self, d, validate: bool = True):
+        Munch.update(self, self.transform(d, validate=validate))
+
 
 @munchclass()
 class Config(DataClass):
@@ -146,7 +159,7 @@ class Config(DataClass):
         for name, _class in cls._type_hints.items():
             if name not in values:
                 if not allow_incomplete:
-                    raise Exception(f'Config key {name} not found')
+                    raise Exception(f'Config key "{name}" not in input dictionary')
                 continue
             value = values.pop(name)
             if not isinstance(value, _class):

@@ -1,6 +1,7 @@
 import pytest
 
 import os
+import pickle
 import toml
 
 from tempfile import mktemp, gettempdir as get_system_tempdir
@@ -166,6 +167,17 @@ def test_config_scheme_modified():
     assert c
     assert c.build.crossdirect is False
     assert c.wrapper.type == 'none'
+
+
+def test_configstate_profile_pickle():
+    c = ConfigStateHolder()
+    assert c.file.wrapper
+    assert c.file.profiles
+    # add new profile to check it doesn't error out due to unknown keys
+    c.file.profiles['graphical'] = {'username': 'kupfer123', 'hostname': 'test123'}
+    p = pickle.dumps(c)
+    unpickled = pickle.loads(p)
+    assert c.file == unpickled.file
 
 
 def test_profile():
