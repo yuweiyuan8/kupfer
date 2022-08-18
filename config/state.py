@@ -7,16 +7,14 @@ from typing import Mapping, Optional
 
 from constants import DEFAULT_PACKAGE_BRANCH
 
-from .scheme import Profile
+from .scheme import Config, ConfigLoadState, Profile, RuntimeConfiguration
 from .profile import PROFILE_DEFAULTS, resolve_profile
-
 
 CONFIG_DIR = appdirs.user_config_dir('kupfer')
 CACHE_DIR = appdirs.user_cache_dir('kupfer')
 CONFIG_DEFAULT_PATH = os.path.join(CONFIG_DIR, 'kupferbootstrap.toml')
 
-
-CONFIG_DEFAULTS: dict = {
+CONFIG_DEFAULTS: Config = Config.fromDict({
     'wrapper': {
         'type': 'docker',
     },
@@ -49,17 +47,17 @@ CONFIG_DEFAULTS: dict = {
         'current': 'default',
         'default': deepcopy(PROFILE_DEFAULTS),
     },
-}
+})
 CONFIG_SECTIONS = list(CONFIG_DEFAULTS.keys())
 
-CONFIG_RUNTIME_DEFAULTS = {
+CONFIG_RUNTIME_DEFAULTS: RuntimeConfiguration = RuntimeConfiguration.fromDict({
     'verbose': False,
     'config_file': None,
     'arch': None,
     'no_wrap': False,
-    'script_source_dir': os.path.dirname(os.path.realpath(__file__)),
+    'script_source_dir': os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
     'error_shell': False,
-}
+})
 
 
 def resolve_path_template(path_template: str, paths: dict[str, str]) -> str:
@@ -177,26 +175,20 @@ class ConfigLoadException(Exception):
         super().__init__(self, ' '.join(msg))
 
 
-class ConfigLoadState:
-    load_finished = False
-    exception = None
-
-
 class ConfigStateHolder:
     # config options that are persisted to file
-    file: dict = {}
+    file: Config
     # runtime config not persisted anywhere
-    runtime: dict
+    runtime: RuntimeConfiguration
     file_state: ConfigLoadState
     _profile_cache: dict[str, Profile]
 
     def __init__(self, file_conf_path: Optional[str] = None, runtime_conf={}, file_conf_base: dict = {}):
         """init a stateholder, optionally loading `file_conf_path`"""
+        self.file = Config.fromDict(merge_configs(conf_new=file_conf_base, conf_base=CONFIG_DEFAULTS))
         self.file_state = ConfigLoadState()
-        self.runtime = CONFIG_RUNTIME_DEFAULTS.copy()
-        self.runtime.update(runtime_conf)
+        self.runtime = RuntimeConfiguration.fromDict(CONFIG_RUNTIME_DEFAULTS | runtime_conf)
         self.runtime['arch'] = os.uname().machine
-        self.file.update(file_conf_base)
         if file_conf_path:
             self.try_load_file(file_conf_path)
 
@@ -255,7 +247,7 @@ class ConfigStateHolder:
         """Update `self.file` with `config_fragment`. Returns `True` if the config was changed"""
         merged = merge_configs(config_fragment, conf_base=self.file, warn_missing_defaultprofile=warn_missing_defaultprofile)
         changed = self.file != merged
-        self.file = merged
+        self.file.update(merged)
         if changed and 'profiles' in config_fragment and self.file['profiles'] != config_fragment['profiles']:
             self.invalidate_profile_cache()
         return changed

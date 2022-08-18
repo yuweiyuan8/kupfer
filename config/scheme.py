@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Optional, Union, Mapping, Any, get_type_hints, get_origin, get_args, Iterable
 from munch import Munch
 
+from constants import Arch
+
 
 def munchclass(*args, init=False, **kwargs):
     return dataclass(*args, init=init, **kwargs)
@@ -157,3 +159,19 @@ class Config(DataClass):
             _vals |= values
 
         return Config(**_vals, validate=validate)
+
+
+@munchclass()
+class RuntimeConfiguration(DataClass):
+    verbose: bool
+    config_file: Optional[str]
+    arch: Optional[Arch]
+    no_wrap: bool
+    script_source_dir: str
+    error_shell: bool
+
+
+@munchclass()
+class ConfigLoadState(DataClass):
+    load_finished = False
+    exception = None

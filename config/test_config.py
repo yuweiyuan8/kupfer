@@ -1,8 +1,9 @@
 import pytest
 
 import os
-from tempfile import mktemp, gettempdir as get_system_tempdir
 import toml
+
+from tempfile import mktemp, gettempdir as get_system_tempdir
 from typing import Optional
 
 from config.profile import PROFILE_DEFAULTS
