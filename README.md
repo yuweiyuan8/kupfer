@@ -3,7 +3,7 @@
 Kupfer Linux bootstrapping tool - drives pacstrap, makepkg, mkfs and fastboot, just to name a few.
 
 ## Installation
-Install Docker, Python 3 with libraries `click`, `appdirs`, `joblib`, `toml`, `typing_extentions`, and `coloredlogs` and put `bin/` into your `PATH`.
+Install Docker, Python 3 with the libraries from `requirements.txt` and put `bin/` into your `PATH`.
 Then use `kupferbootstrap`.
 
 ## Usage

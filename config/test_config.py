@@ -5,7 +5,8 @@ from tempfile import mktemp, gettempdir as get_system_tempdir
 import toml
 from typing import Optional
 
-from config import CONFIG_DEFAULTS, ConfigStateHolder, Profile
+from config import CONFIG_DEFAULTS, ConfigStateHolder, PROFILE_DEFAULTS
+from config.scheme import Config, Profile
 
 
 def get_filename():
@@ -85,14 +86,17 @@ def dict_filter_out_None(d: dict):
     return {k: v for k, v in d.items() if v is not None}
 
 
-def compare_to_defaults(config: dict, defaults: dict = CONFIG_DEFAULTS):
+def compare_to_defaults(config: dict, defaults: dict = CONFIG_DEFAULTS, filter_None_from_defaults: Optional[bool] = None):
+    if filter_None_from_defaults is None:
+        filter_None_from_defaults = not isinstance(config, Config)
     # assert sections match
     assert config.keys() == defaults.keys()
     for section, section_defaults in defaults.items():
         assert section in config
         assert isinstance(section_defaults, dict)
         # Filter out None values from defaults - they're not written unless set
-        section_defaults = dict_filter_out_None(section_defaults)
+        if filter_None_from_defaults:
+            section_defaults = dict_filter_out_None(section_defaults)
         section_values_config = config[section]
         if section != 'profiles':
             assert section_values_config == section_defaults
@@ -101,8 +105,12 @@ def compare_to_defaults(config: dict, defaults: dict = CONFIG_DEFAULTS):
             assert CURRENT_KEY in section_defaults.keys()
             assert section_defaults.keys() == section_values_config.keys()
             assert section_defaults[CURRENT_KEY] == section_values_config[CURRENT_KEY]
-            for key in set(section_defaults.keys()) - set([CURRENT_KEY]):
-                assert dict_filter_out_None(section_defaults[key]) == section_values_config[key]
+            for profile_name, profile in section_defaults.items():
+                if profile_name == CURRENT_KEY:
+                    continue  # not a profile
+                if filter_None_from_defaults:
+                    profile = dict_filter_out_None(profile)
+                assert profile == section_values_config[profile_name]
 
 
 def load_toml_file(path) -> dict:
@@ -110,6 +118,7 @@ def load_toml_file(path) -> dict:
         text = f.read()
     assert text
     return toml.loads(text)
+
 
 def get_path_from_stateholder(c: ConfigStateHolder):
     return c.runtime['config_file']
@@ -141,8 +150,24 @@ def test_config_save_modified(configstate_emptyfile: ConfigStateHolder):
     compare_to_defaults(load_toml_file(get_path_from_stateholder(c)), defaults_modified)
 
 
+def test_config_scheme_defaults():
+    c = Config.fromDict(CONFIG_DEFAULTS, validate=True, allow_incomplete=False)
+    assert c
+    compare_to_defaults(c)
+
+
+def test_config_scheme_modified():
+    modifications = {'wrapper': {'type': 'none'}, 'build': {'crossdirect': False}}
+    assert set(modifications.keys()).issubset(CONFIG_DEFAULTS.keys())
+    d = {section_name: (section | modifications.get(section_name, {})) for section_name, section in CONFIG_DEFAULTS.items()}
+    c = Config.fromDict(d, validate=True, allow_incomplete=False)
+    assert c
+    assert c.build.crossdirect is False
+    assert c.wrapper.type == 'none'
+
+
 def test_profile():
     p = None
-    p = Profile()
+    p = Profile.fromDict(PROFILE_DEFAULTS)
     assert p is not None
-    assert isinstance(p, dict)
+    assert isinstance(p, Profile)

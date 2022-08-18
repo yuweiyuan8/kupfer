@@ -4,3 +4,4 @@ joblib==1.0.1
 toml
 typing_extensions
 coloredlogs
+munch
