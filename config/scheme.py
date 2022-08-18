@@ -186,5 +186,5 @@ class RuntimeConfiguration(DataClass):
 
 @munchclass()
 class ConfigLoadState(DataClass):
-    load_finished = False
-    exception = None
+    load_finished: bool = False
+    exception: Optional[Exception] = None
