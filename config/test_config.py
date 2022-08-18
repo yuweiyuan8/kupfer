@@ -105,6 +105,16 @@ def compare_to_defaults(config: dict, defaults: dict = CONFIG_DEFAULTS):
                 assert dict_filter_out_None(section_defaults[key]) == section_values_config[key]
 
 
+def load_toml_file(path) -> dict:
+    with open(path, 'r') as f:
+        text = f.read()
+    assert text
+    return toml.loads(text)
+
+def get_path_from_stateholder(c: ConfigStateHolder):
+    return c.runtime['config_file']
+
+
 def test_config_save_nonexistant(configstate_nonexistant: ConfigStateHolder):
     c = configstate_nonexistant
     confpath = c.runtime['config_file']
@@ -112,12 +122,23 @@ def test_config_save_nonexistant(configstate_nonexistant: ConfigStateHolder):
     c.write()
     assert confpath
     assert os.path.exists(confpath)
-    with open(confpath, 'r') as f:
-        text = f.read()
-    assert text
-    loaded = toml.loads(text)
+    loaded = load_toml_file(confpath)
+    assert loaded
     # sadly we can't just assert `loaded == CONFIG_DEFAULTS` due to `None` values
     compare_to_defaults(loaded)
+
+
+def test_config_save_modified(configstate_emptyfile: ConfigStateHolder):
+    c = configstate_emptyfile
+    WRAPPER_KEY = 'wrapper'
+    TYPE_KEY = 'type'
+    assert WRAPPER_KEY in c.file
+    assert TYPE_KEY in c.file[WRAPPER_KEY]
+    wrapper_section = CONFIG_DEFAULTS[WRAPPER_KEY] | {TYPE_KEY: 'none'}
+    c.file[WRAPPER_KEY] |= wrapper_section
+    c.write()
+    defaults_modified = CONFIG_DEFAULTS | {WRAPPER_KEY: wrapper_section}
+    compare_to_defaults(load_toml_file(get_path_from_stateholder(c)), defaults_modified)
 
 
 def test_profile():
