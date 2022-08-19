@@ -5,7 +5,7 @@ import subprocess
 
 from typing import Optional, Sequence
 
-from config import ConfigStateHolder
+from config import config, ConfigStateHolder
 from exec.cmd import run_cmd
 from constants import Arch, MAKEPKG_CMD
 from distro.package import PackageInfo
@@ -93,10 +93,13 @@ class SubPkgbuild(Pkgbuild):
         self.update_version()
 
 
-def parse_pkgbuild(relative_pkg_dir: str, config: ConfigStateHolder) -> Sequence[Pkgbuild]:
+def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] = None) -> Sequence[Pkgbuild]:
     """
     Since function may run in a different subprocess, we need to be passed the config via parameter
     """
+    global config
+    if _config:
+        config = _config
     setup_logging(verbose=config.runtime['verbose'], log_setup=False)  # different thread needs log setup.
     logging.info(f"Parsing PKGBUILD for {relative_pkg_dir}")
     pkgbuilds_dir = config.get_path('pkgbuilds')
