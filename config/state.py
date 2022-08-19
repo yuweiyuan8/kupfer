@@ -189,6 +189,7 @@ class ConfigStateHolder:
         self.file_state = ConfigLoadState()
         self.runtime = RuntimeConfiguration.fromDict(CONFIG_RUNTIME_DEFAULTS | runtime_conf)
         self.runtime['arch'] = os.uname().machine
+        self._profile_cache = {}
         if file_conf_path:
             self.try_load_file(file_conf_path)
 
