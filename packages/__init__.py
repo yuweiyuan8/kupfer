@@ -104,14 +104,15 @@ def init_prebuilts(arch: Arch, dir: str = None):
                         raise Exception(f'Failed to create local repo {repo}')
 
 
-_pkgbuilds_discovered = dict[str, Pkgbuild]()
+_pkgbuilds_cache = dict[str, Pkgbuild]()
+_pkgbuilds_scanned: bool = False
 
 
 def discover_packages(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
-    global _pkgbuilds_discovered
-    if lazy and _pkgbuilds_discovered:
+    global _pkgbuilds_cache, _pkgbuilds_scanned
+    if lazy and _pkgbuilds_scanned:
         logging.debug("Reusing cached pkgbuilds repo")
-        return _pkgbuilds_discovered.copy()
+        return _pkgbuilds_cache.copy()
     pkgbuilds_dir = config.get_path('pkgbuilds')
     packages: dict[str, Pkgbuild] = {}
     paths = []
@@ -156,7 +157,9 @@ def discover_packages(parallel: bool = True, lazy: bool = True) -> dict[str, Pkg
                 logging.debug(f'Removing {dep} from dependencies')
                 package.local_depends.remove(dep)
 
-    _pkgbuilds_discovered = packages.copy()
+    _pkgbuilds_cache.clear()
+    _pkgbuilds_cache.update(packages)
+    _pkgbuilds_scanned = True
     return packages
 
 
