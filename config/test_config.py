@@ -7,7 +7,7 @@ import toml
 from tempfile import mktemp, gettempdir as get_system_tempdir
 from typing import Optional
 
-from config.profile import PROFILE_DEFAULTS
+from config.profile import Profile, PROFILE_DEFAULTS
 from config.scheme import Config, Profile
 from config.state import CONFIG_DEFAULTS, ConfigStateHolder
 
@@ -185,3 +185,32 @@ def test_profile():
     p = Profile.fromDict(PROFILE_DEFAULTS)
     assert p is not None
     assert isinstance(p, Profile)
+
+
+def test_get_profile():
+    c = ConfigStateHolder()
+    d = {'username': 'kupfer123', 'hostname': 'test123'}
+    c.file.profiles['testprofile'] = d
+    p = c.get_profile('testprofile')
+    assert p
+    assert isinstance(p, Profile)
+
+
+def test_get_profile_from_disk(configstate_emptyfile):
+    profile_name = 'testprofile'
+    device = 'sdm845-oneplus-enchilada'
+    c = configstate_emptyfile
+    c.file.profiles.default.device = device
+    d = {'parent': 'default', 'username': 'kupfer123', 'hostname': 'test123'}
+    c.file.profiles[profile_name] = d
+    filepath = c.runtime.config_file
+    assert filepath
+    c.write()
+    del c
+    c = ConfigStateHolder(filepath)
+    c.try_load_file(filepath)
+    c.enforce_config_loaded()
+    p: Profile = c.get_profile(profile_name)
+    assert isinstance(p, Profile)
+    assert 'device' in p
+    assert p.device == device

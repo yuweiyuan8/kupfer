@@ -8,7 +8,7 @@ from constants import Arch
 
 
 def munchclass(*args, init=False, **kwargs):
-    return dataclass(*args, init=init, **kwargs)
+    return dataclass(*args, init=init, slots=True, **kwargs)
 
 
 def resolve_type_hint(hint: type):
@@ -26,8 +26,8 @@ def resolve_type_hint(hint: type):
 
 class DataClass(Munch):
 
-    def __init__(self, validate: bool = True, **kwargs):
-        self.update(kwargs, validate=validate)
+    def __init__(self, d: dict = {}, validate: bool = True, **kwargs):
+        self.update(d | kwargs, validate=validate)
 
     @classmethod
     def transform(cls, values: Mapping[str, Any], validate: bool = True) -> Any:
@@ -72,10 +72,29 @@ class DataClass(Munch):
         super().__init_subclass__()
         cls._type_hints = get_type_hints(cls)
 
+    def __repr__(self):
+        return f'{type(self)}{dict.__repr__(self.toDict())}'
+
 
 @munchclass()
-class Profile(DataClass):
-    parent: str
+class SparseProfile(DataClass):
+    parent: Optional[str]
+    device: Optional[str]
+    flavour: Optional[str]
+    pkgs_include: Optional[list[str]]
+    pkgs_exclude: Optional[list[str]]
+    hostname: Optional[str]
+    username: Optional[str]
+    password: Optional[str]
+    size_extra_mb: Optional[Union[str, int]]
+
+    def __repr__(self):
+        return f'{type(self)}{dict.__repr__(self.toDict())}'
+
+
+@munchclass()
+class Profile(SparseProfile):
+    parent: Optional[str]
     device: str
     flavour: str
     pkgs_include: list[str]
@@ -124,10 +143,9 @@ class PathsSection(DataClass):
     images: str
 
 
-@munchclass()
 class ProfilesSection(DataClass):
     current: str
-    default: Profile
+    default: SparseProfile
 
     @classmethod
     def transform(cls, values: Mapping[str, Any], validate: bool = True):
@@ -136,11 +154,16 @@ class ProfilesSection(DataClass):
             if k == 'current':
                 results[k] = v
                 continue
-            results[k] = Profile.fromDict(v, validate=True)
+            if not isinstance(v, dict):
+                raise Exception(f'profile {v} is not a dict!')
+            results[k] = SparseProfile.fromDict(v, validate=True)
         return results
 
     def update(self, d, validate: bool = True):
-        Munch.update(self, self.transform(d, validate=validate))
+        Munch.update(self, self.transform(values=d, validate=validate))
+
+    def __repr__(self):
+        return f'{type(self)}{dict.__repr__(self.toDict())}'
 
 
 @munchclass()
@@ -184,7 +207,11 @@ class RuntimeConfiguration(DataClass):
     error_shell: bool
 
 
-@munchclass()
 class ConfigLoadState(DataClass):
-    load_finished: bool = False
-    exception: Optional[Exception] = None
+    load_finished: bool
+    exception: Optional[Exception]
+
+    def __init__(self, d: dict = {}):
+        self.load_finished = False
+        self.exception = None
+        self.update(d)

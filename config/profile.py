@@ -2,9 +2,9 @@ import logging
 
 from copy import deepcopy
 
-from .scheme import Profile
+from .scheme import Profile, SparseProfile
 
-PROFILE_DEFAULTS = Profile.fromDict({
+PROFILE_DEFAULTS_DICT = {
     'parent': '',
     'device': '',
     'flavour': '',
@@ -14,14 +14,15 @@ PROFILE_DEFAULTS = Profile.fromDict({
     'username': 'kupfer',
     'password': None,
     'size_extra_mb': "0",
-})
+}
+PROFILE_DEFAULTS = Profile.fromDict(PROFILE_DEFAULTS_DICT)
 
 PROFILE_EMPTY: Profile = {key: None for key in PROFILE_DEFAULTS.keys()}  # type: ignore
 
 
 def resolve_profile(
     name: str,
-    sparse_profiles: dict[str, Profile],
+    sparse_profiles: dict[str, SparseProfile],
     resolved: dict[str, Profile] = None,
     _visited=None,
 ) -> dict[str, Profile]:
@@ -45,8 +46,10 @@ def resolve_profile(
 
     logging.debug(f'Resolving profile {name}')
     _visited.append(name)
-    sparse = sparse_profiles[name]
+    sparse = sparse_profiles[name].copy()
     full = deepcopy(sparse)
+    if name != 'default' and 'parent' not in sparse:
+        sparse['parent'] = 'default'
     if 'parent' in sparse and (parent_name := sparse['parent']):
         parent = resolve_profile(name=parent_name, sparse_profiles=sparse_profiles, resolved=resolved, _visited=_visited)[parent_name]
         full = parent | sparse
@@ -71,13 +74,13 @@ def resolve_profile(
         full['pkgs_exclude'] = list(excludes)
 
     # now init missing keys
-    for key, value in PROFILE_DEFAULTS.items():
+    for key, value in PROFILE_DEFAULTS_DICT.items():
         if key not in full.keys():
-            full[key] = None  # type: ignore[literal-required]
+            full[key] = value  # type: ignore[literal-required]
             if type(value) == list:
                 full[key] = []  # type: ignore[literal-required]
 
     full['size_extra_mb'] = int(full['size_extra_mb'] or 0)
 
-    resolved[name] = full
+    resolved[name] = Profile.fromDict(full)
     return resolved

@@ -7,14 +7,14 @@ from typing import Mapping, Optional
 
 from constants import DEFAULT_PACKAGE_BRANCH
 
-from .scheme import Config, ConfigLoadState, Profile, RuntimeConfiguration
-from .profile import PROFILE_DEFAULTS, resolve_profile
+from .scheme import Config, ConfigLoadState, DataClass, Profile, RuntimeConfiguration
+from .profile import PROFILE_DEFAULTS, PROFILE_DEFAULTS_DICT, resolve_profile
 
 CONFIG_DIR = appdirs.user_config_dir('kupfer')
 CACHE_DIR = appdirs.user_cache_dir('kupfer')
 CONFIG_DEFAULT_PATH = os.path.join(CONFIG_DIR, 'kupferbootstrap.toml')
 
-CONFIG_DEFAULTS: Config = Config.fromDict({
+CONFIG_DEFAULTS_DICT = {
     'wrapper': {
         'type': 'docker',
     },
@@ -45,9 +45,10 @@ CONFIG_DEFAULTS: Config = Config.fromDict({
     },
     'profiles': {
         'current': 'default',
-        'default': deepcopy(PROFILE_DEFAULTS),
+        'default': deepcopy(PROFILE_DEFAULTS_DICT),
     },
-})
+}
+CONFIG_DEFAULTS: Config = Config.fromDict(CONFIG_DEFAULTS_DICT)
 CONFIG_SECTIONS = list(CONFIG_DEFAULTS.keys())
 
 CONFIG_RUNTIME_DEFAULTS: RuntimeConfiguration = RuntimeConfiguration.fromDict({
@@ -84,12 +85,12 @@ def merge_configs(conf_new: Mapping[str, dict], conf_base={}, warn_missing_defau
 
     for outer_name, outer_conf in deepcopy(conf_new).items():
         # only handle known config sections
-        if outer_name not in CONFIG_DEFAULTS.keys():
+        if outer_name not in CONFIG_SECTIONS:
             logging.warning(f'Skipped unknown config section "{outer_name}"')
             continue
         logging.debug(f'Parsing config section "{outer_name}"')
         # check if outer_conf is a dict
-        if not isinstance(outer_conf, dict):
+        if not (isinstance(outer_conf, (dict, DataClass))):
             parsed[outer_name] = outer_conf
         else:
             # init section
@@ -103,8 +104,9 @@ def merge_configs(conf_new: Mapping[str, dict], conf_base={}, warn_missing_defau
                 if warn_missing_defaultprofile and 'default' not in outer_conf.keys():
                     logging.warning('Default profile is not defined in config file')
 
+                update = dict[str, dict]()
                 for profile_name, profile_conf in outer_conf.items():
-                    if not isinstance(profile_conf, dict):
+                    if not isinstance(profile_conf, (dict, Profile)):
                         if profile_name == 'current':
                             parsed[outer_name][profile_name] = profile_conf
                         else:
@@ -112,14 +114,18 @@ def merge_configs(conf_new: Mapping[str, dict], conf_base={}, warn_missing_defau
                         continue
 
                     #  init profile
-                    if profile_name not in parsed[outer_name]:
-                        parsed[outer_name][profile_name] = {}
+                    if profile_name in parsed[outer_name]:
+                        profile = parsed[outer_name][profile_name]
+                    else:
+                        profile = {}
 
                     for key, val in profile_conf.items():
                         if key not in PROFILE_DEFAULTS:
                             logging.warning(f'Skipped unknown config item "{key}" in profile "{profile_name}"')
                             continue
-                        parsed[outer_name][profile_name][key] = val
+                        profile[key] = val
+                    update |= {profile_name: profile}
+                parsed[outer_name].update(update)
 
             else:
                 # handle generic inner config dict
@@ -209,17 +215,41 @@ class ConfigStateHolder:
 
     def enforce_config_loaded(self):
         if not self.file_state.load_finished:
-            raise ConfigLoadException(Exception("Config file wasn't even parsed yet. This is probably a bug in kupferbootstrap :O"))
+            m = "Config file wasn't even parsed yet. This is probably a bug in kupferbootstrap :O"
+            raise ConfigLoadException(Exception(m))
         ex = self.file_state.exception
         if ex:
             if type(ex) == FileNotFoundError:
-                ex = Exception("File doesn't exist. Try running `kupferbootstrap config init` first?")
+                ex = Exception("Config file doesn't exist. Try running `kupferbootstrap config init` first?")
             raise ex
 
     def get_profile(self, name: Optional[str] = None) -> Profile:
         name = name or self.file['profiles']['current']
         self._profile_cache = resolve_profile(name=name, sparse_profiles=self.file['profiles'], resolved=self._profile_cache)
         return self._profile_cache[name]
+
+    def enforce_profile_device_set(self, profile_name: Optional[str] = None, hint_or_set_arch: bool = False) -> Profile:
+        arch_hint = ''
+        if not hint_or_set_arch:
+            self.enforce_config_loaded()
+        else:
+            arch_hint = (' or specifiy the target architecture by passing `--arch` to the current command,\n'
+                         'e.g. `kupferbootstrap packages build --arch x86_64`')
+            if not self.is_loaded():
+                if not self.file_state.exception:
+                    raise Exception('Error enforcing/ config profile device: config hadnt even been loaded yet.\n'
+                                    'This is a bug in kupferbootstrap!')
+                raise Exception("Profile device couldn't be resolved because the config file couldn't be loaded.\n"
+                                "If the config doesn't exist, try running `kupferbootstrap config init`.\n"
+                                f"Error: {self.file_state.exception}")
+        if profile_name and profile_name not in self.file.profiles:
+            raise Exception(f'Unknown profile "{profile_name}". Please run `kupferbootstrap config profile init`{arch_hint}')
+        profile = self.get_profile(profile_name)
+        if not profile.device:
+            m = (f'Profile "{profile_name}" has no device configured.\n'
+                 f'Please run `kupferbootstrap config profile init device`{arch_hint}')
+            raise Exception(m)
+        return profile
 
     def get_path(self, path_name: str) -> str:
         paths = self.file['paths']
