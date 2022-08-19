@@ -1,15 +1,53 @@
 from __future__ import annotations
 
+import click
+import logging
+import multiprocessing
 import os
 import subprocess
 
+from constants import REPOSITORIES
+from joblib import Parallel, delayed
 from typing import Optional, Sequence
 
 from config import config, ConfigStateHolder
 from exec.cmd import run_cmd
 from constants import Arch, MAKEPKG_CMD
 from distro.package import PackageInfo
-from logger import logging, setup_logging
+from logger import setup_logging
+from utils import git
+
+
+def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
+    git_dir = os.path.join(pkgbuilds_dir, '.git')
+    if not os.path.exists(git_dir):
+        logging.info('Cloning branch {branch} from {repo}')
+        result = git(['clone', '-b', branch, repo_url, pkgbuilds_dir])
+        if result.returncode != 0:
+            raise Exception('Error cloning pkgbuilds')
+    else:
+        result = git(['--git-dir', git_dir, 'branch', '--show-current'], capture_output=True)
+        current_branch = result.stdout.decode().strip()
+        if current_branch != branch:
+            logging.warning(f'pkgbuilds repository is on the wrong branch: {current_branch}, requested: {branch}')
+            if interactive and click.confirm('Would you like to switch branches?', default=False):
+                result = git(['switch', branch], dir=pkgbuilds_dir)
+                if result.returncode != 0:
+                    raise Exception('failed switching branches')
+        if update:
+            if interactive:
+                if not click.confirm('Would you like to try updating the PKGBUILDs repo?'):
+                    return
+            result = git(['pull'], pkgbuilds_dir)
+            if result.returncode != 0:
+                raise Exception('failed to update pkgbuilds')
+
+
+def init_pkgbuilds(interactive=False):
+    pkgbuilds_dir = config.get_path('pkgbuilds')
+    repo_url = config.file['pkgbuilds']['git_repo']
+    branch = config.file['pkgbuilds']['git_branch']
+    clone_pkbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
 
 
 class Pkgbuild(PackageInfo):
@@ -171,3 +209,62 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
         if not (pkg.version == base_package.version):
             raise Exception(f'Subpackage malformed! Versions differ! base: {base_package}, subpackage: {pkg}')
     return results
+
+
+_pkgbuilds_cache = dict[str, Pkgbuild]()
+_pkgbuilds_scanned: bool = False
+
+
+def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
+    global _pkgbuilds_cache, _pkgbuilds_scanned
+    if lazy and _pkgbuilds_scanned:
+        logging.debug("Reusing cached pkgbuilds repo")
+        return _pkgbuilds_cache.copy()
+    pkgbuilds_dir = config.get_path('pkgbuilds')
+    packages: dict[str, Pkgbuild] = {}
+    paths = []
+    init_pkgbuilds(interactive=False)
+    for repo in REPOSITORIES:
+        for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
+            paths.append(os.path.join(repo, dir))
+
+    results = []
+
+    logging.info("Parsing PKGBUILDs")
+
+    logging.debug(f"About to parse pkgbuilds. verbosity: {config.runtime['verbose']}")
+    if parallel:
+        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(delayed(parse_pkgbuild)(path, config) for path in paths))
+    else:
+        chunks = (parse_pkgbuild(path) for path in paths)
+
+    for pkglist in chunks:
+        results += pkglist
+
+    logging.debug('Building package dictionary!')
+    for package in results:
+        for name in [package.name] + package.replaces:
+            if name in packages:
+                logging.warning(f'Overriding {packages[package.name]} with {package}')
+            packages[name] = package
+
+    # This filters the deps to only include the ones that are provided in this repo
+    for package in packages.values():
+        package.local_depends = package.depends.copy()
+        for dep in package.depends.copy():
+            found = dep in packages
+            for p in packages.values():
+                if found:
+                    break
+                if dep in p.names():
+                    logging.debug(f'Found {p.name} that provides {dep}')
+                    found = True
+                    break
+            if not found:
+                logging.debug(f'Removing {dep} from dependencies')
+                package.local_depends.remove(dep)
+
+    _pkgbuilds_cache.clear()
+    _pkgbuilds_cache.update(packages)
+    _pkgbuilds_scanned = True
+    return packages

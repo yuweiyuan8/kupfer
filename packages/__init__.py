@@ -5,7 +5,6 @@ import os
 import shutil
 import subprocess
 from copy import deepcopy
-from joblib import Parallel, delayed
 from glob import glob
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -23,7 +22,7 @@ from ssh import run_ssh_command, scp_put_files
 from wrapper import enforce_wrap
 from utils import git
 
-from .pkgbuild import Pkgbuild, parse_pkgbuild
+from .pkgbuild import discover_pkgbuilds, init_pkgbuilds, Pkgbuild
 
 pacman_cmd = [
     'pacman',
@@ -43,38 +42,6 @@ def get_makepkg_env():
         'MAKEFLAGS': f"-j{threads}",
         'QEMU_LD_PREFIX': '/usr/aarch64-unknown-linux-gnu',
     }
-
-
-def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
-    git_dir = os.path.join(pkgbuilds_dir, '.git')
-    if not os.path.exists(git_dir):
-        logging.info('Cloning branch {branch} from {repo}')
-        result = git(['clone', '-b', branch, repo_url, pkgbuilds_dir])
-        if result.returncode != 0:
-            raise Exception('Error cloning pkgbuilds')
-    else:
-        result = git(['--git-dir', git_dir, 'branch', '--show-current'], capture_output=True)
-        current_branch = result.stdout.decode().strip()
-        if current_branch != branch:
-            logging.warning(f'pkgbuilds repository is on the wrong branch: {current_branch}, requested: {branch}')
-            if interactive and click.confirm('Would you like to switch branches?', default=False):
-                result = git(['switch', branch], dir=pkgbuilds_dir)
-                if result.returncode != 0:
-                    raise Exception('failed switching branches')
-        if update:
-            if interactive:
-                if not click.confirm('Would you like to try updating the PKGBUILDs repo?'):
-                    return
-            result = git(['pull'], pkgbuilds_dir)
-            if result.returncode != 0:
-                raise Exception('failed to update pkgbuilds')
-
-
-def init_pkgbuilds(interactive=False):
-    pkgbuilds_dir = config.get_path('pkgbuilds')
-    repo_url = config.file['pkgbuilds']['git_repo']
-    branch = config.file['pkgbuilds']['git_branch']
-    clone_pkbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
 
 
 def init_prebuilts(arch: Arch, dir: str = None):
@@ -102,65 +69,6 @@ def init_prebuilts(arch: Arch, dir: str = None):
                     assert isinstance(result, subprocess.CompletedProcess)
                     if result.returncode != 0:
                         raise Exception(f'Failed to create local repo {repo}')
-
-
-_pkgbuilds_cache = dict[str, Pkgbuild]()
-_pkgbuilds_scanned: bool = False
-
-
-def discover_packages(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
-    global _pkgbuilds_cache, _pkgbuilds_scanned
-    if lazy and _pkgbuilds_scanned:
-        logging.debug("Reusing cached pkgbuilds repo")
-        return _pkgbuilds_cache.copy()
-    pkgbuilds_dir = config.get_path('pkgbuilds')
-    packages: dict[str, Pkgbuild] = {}
-    paths = []
-    init_pkgbuilds(interactive=False)
-    for repo in REPOSITORIES:
-        for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
-            paths.append(os.path.join(repo, dir))
-
-    results = []
-
-    logging.info("Parsing PKGBUILDs")
-
-    logging.debug(f"About to parse pkgbuilds. verbosity: {config.runtime['verbose']}")
-    if parallel:
-        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(delayed(parse_pkgbuild)(path, config) for path in paths))
-    else:
-        chunks = (parse_pkgbuild(path, config) for path in paths)
-
-    for pkglist in chunks:
-        results += pkglist
-
-    logging.debug('Building package dictionary!')
-    for package in results:
-        for name in [package.name] + package.replaces:
-            if name in packages:
-                logging.warning(f'Overriding {packages[package.name]} with {package}')
-            packages[name] = package
-
-    # This filters the deps to only include the ones that are provided in this repo
-    for package in packages.values():
-        package.local_depends = package.depends.copy()
-        for dep in package.depends.copy():
-            found = dep in packages
-            for p in packages.values():
-                if found:
-                    break
-                if dep in p.names():
-                    logging.debug(f'Found {p.name} that provides {dep}')
-                    found = True
-                    break
-            if not found:
-                logging.debug(f'Removing {dep} from dependencies')
-                package.local_depends.remove(dep)
-
-    _pkgbuilds_cache.clear()
-    _pkgbuilds_cache.update(packages)
-    _pkgbuilds_scanned = True
-    return packages
 
 
 def filter_packages(repo: dict[str, Pkgbuild], paths: Iterable[str], allow_empty_results=True, use_paths=True, use_names=True) -> Iterable[Pkgbuild]:
@@ -718,7 +626,7 @@ def build_enable_qemu_binfmt(arch: Arch, repo: dict[str, Pkgbuild] = None):
         return
     enforce_wrap()
     if not repo:
-        repo = discover_packages()
+        repo = discover_pkgbuilds()
 
     # build qemu-user, binfmt, crossdirect
     build_packages_by_paths(
@@ -784,7 +692,7 @@ def build(
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
     enforce_wrap()
     config.enforce_config_loaded()
-    repo: dict[str, Pkgbuild] = discover_packages()
+    repo: dict[str, Pkgbuild] = discover_pkgbuilds()
     if arch != config.runtime['arch']:
         build_enable_qemu_binfmt(arch, repo=repo)
 
@@ -884,7 +792,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 def cmd_list():
     enforce_wrap()
     logging.info('Discovering packages.')
-    packages = discover_packages()
+    packages = discover_pkgbuilds()
     logging.info(f'Done! {len(packages)} Pkgbuilds:')
     for p in set(packages.values()):
         print(
@@ -906,7 +814,7 @@ def cmd_check(paths):
         return False
 
     paths = list(paths)
-    packages = filter_packages(discover_packages(), paths, allow_empty_results=False)
+    packages = filter_packages(discover_pkgbuilds(), paths, allow_empty_results=False)
 
     for package in packages:
         name = package.name

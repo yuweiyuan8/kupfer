@@ -15,7 +15,7 @@ from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
-from packages import build_enable_qemu_binfmt, discover_packages, build_packages
+from packages import build_enable_qemu_binfmt, discover_pkgbuilds, build_packages
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
 
@@ -400,7 +400,7 @@ def cmd_build(profile_name: str = None,
 
     if local_repos and build_pkgs:
         logging.info("Making sure all packages are built")
-        repo = discover_packages()
+        repo = discover_pkgbuilds()
         build_packages(repo, [p for name, p in repo.items() if name in packages], arch, try_download=not no_download_pkgs)
 
     image_path = block_target or get_image_path(device, flavour)
