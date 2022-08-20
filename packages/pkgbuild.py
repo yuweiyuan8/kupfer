@@ -16,9 +16,11 @@ from constants import Arch, MAKEPKG_CMD
 from distro.package import PackageInfo
 from logger import setup_logging
 from utils import git
+from wrapper import check_programs_wrap
 
 
 def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
+    check_programs_wrap(['git'])
     git_dir = os.path.join(pkgbuilds_dir, '.git')
     if not os.path.exists(git_dir):
         logging.info('Cloning branch {branch} from {repo}')

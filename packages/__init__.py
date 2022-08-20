@@ -8,7 +8,7 @@ from copy import deepcopy
 from glob import glob
 from urllib.error import HTTPError
 from urllib.request import urlopen
-from shutil import rmtree, copyfileobj
+from shutil import copyfileobj
 from typing import Iterable, Iterator, Any, Optional
 
 from binfmt import register as binfmt_register
@@ -19,10 +19,11 @@ from exec.file import makedir, remove_file
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import PackageInfo, get_kupfer_https, get_kupfer_local
 from ssh import run_ssh_command, scp_put_files
-from wrapper import enforce_wrap
+from wrapper import enforce_wrap, check_programs_wrap, wrap_if_foreign_arch
 from utils import git
 
 from .pkgbuild import discover_pkgbuilds, init_pkgbuilds, Pkgbuild
+from .device import get_profile_device
 
 pacman_cmd = [
     'pacman',
@@ -33,15 +34,19 @@ pacman_cmd = [
 ]
 
 
-def get_makepkg_env():
+def get_makepkg_env(arch: Optional[Arch] = None):
     # has to be a function because calls to `config` must be done after config file was read
     threads = config.file['build']['threads'] or multiprocessing.cpu_count()
-    return {key: val for key, val in os.environ.items() if not key.split('_', maxsplit=1)[0] in ['CI', 'GITLAB', 'FF']} | {
+    env = {key: val for key, val in os.environ.items() if not key.split('_', maxsplit=1)[0] in ['CI', 'GITLAB', 'FF']}
+    env |= {
         'LANG': 'C',
         'CARGO_BUILD_JOBS': str(threads),
         'MAKEFLAGS': f"-j{threads}",
-        'QEMU_LD_PREFIX': '/usr/aarch64-unknown-linux-gnu',
     }
+    native = config.runtime.arch
+    assert native
+    if arch and arch != native:
+        env |= {'QEMU_LD_PREFIX': f'/usr/{GCC_HOSTSPECS[native][arch]}'}
 
 
 def init_prebuilts(arch: Arch, dir: str = None):
@@ -71,7 +76,16 @@ def init_prebuilts(arch: Arch, dir: str = None):
                         raise Exception(f'Failed to create local repo {repo}')
 
 
-def filter_packages(repo: dict[str, Pkgbuild], paths: Iterable[str], allow_empty_results=True, use_paths=True, use_names=True) -> Iterable[Pkgbuild]:
+def filter_packages(
+    paths: Iterable[str],
+    repo: Optional[dict[str, Pkgbuild]] = None,
+    allow_empty_results=True,
+    use_paths=True,
+    use_names=True,
+) -> Iterable[Pkgbuild]:
+    if not allow_empty_results and not paths:
+        raise Exception("Can't search for packages: no query given")
+    repo = repo or discover_pkgbuilds()
     if 'all' in paths:
         return list(repo.values())
     result = []
@@ -199,6 +213,7 @@ def generate_dependency_chain(package_repo: dict[str, Pkgbuild], to_build: Itera
 
 
 def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
+    check_programs_wrap(['repo-add'])
     repo_dir = os.path.join(config.get_package_dir(arch), repo_name)
     pacman_cache_dir = os.path.join(config.get_path('pacman'), arch)
     file_name = os.path.basename(file_path)
@@ -251,7 +266,6 @@ def strip_compression_extension(filename: str):
 
 
 def add_package_to_repo(package: Pkgbuild, arch: Arch):
-
     logging.info(f'Adding {package.path} to repo {package.repo}')
     pkgbuild_dir = os.path.join(config.get_path('pkgbuilds'), package.path)  # TODO: use CHROOT_PATHS?
 
@@ -316,6 +330,7 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
 
 
 def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: bool = False) -> bool:
+    enforce_wrap()
     native_chroot = setup_build_chroot(config.runtime['arch'])
     config_path = '/' + native_chroot.write_makepkg_conf(
         target_arch=arch,
@@ -390,6 +405,9 @@ def setup_build_chroot(
     add_kupfer_repos: bool = True,
     clean_chroot: bool = False,
 ) -> BuildChroot:
+    if arch != config.runtime['arch']:
+        wrap_if_foreign_arch(arch)
+        build_enable_qemu_binfmt(arch)
     init_prebuilts(arch)
     chroot = get_build_chroot(arch, add_kupfer_repos=add_kupfer_repos)
     chroot.mount_packages()
@@ -454,7 +472,7 @@ def build_package(
         logging.info(f'Cross-compiling {package.path}')
         build_root = native_chroot
         makepkg_compile_opts += ['--nodeps']
-        env = deepcopy(get_makepkg_env())
+        env = deepcopy(get_makepkg_env(arch))
         if enable_ccache:
             env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
         logging.info('Setting up dependencies for cross-compilation')
@@ -473,7 +491,7 @@ def build_package(
         logging.info(f'Host-compiling {package.path}')
         build_root = target_chroot
         makepkg_compile_opts += ['--syncdeps']
-        env = deepcopy(get_makepkg_env())
+        env = deepcopy(get_makepkg_env(arch))
         if foreign_arch and enable_crossdirect and package.name not in CROSSDIRECT_PKGS:
             env['PATH'] = f"/native/usr/lib/crossdirect/{arch}:{env['PATH']}"
             target_chroot.mount_crossdirect(native_chroot)
@@ -515,13 +533,14 @@ def get_dependants(
 
 
 def get_unbuilt_package_levels(
-    repo: dict[str, Pkgbuild],
     packages: Iterable[Pkgbuild],
     arch: Arch,
+    repo: Optional[dict[str, Pkgbuild]] = None,
     force: bool = False,
     rebuild_dependants: bool = False,
     try_download: bool = False,
 ) -> list[set[Pkgbuild]]:
+    repo = repo or discover_pkgbuilds()
     dependants = set[Pkgbuild]()
     if rebuild_dependants:
         dependants = get_dependants(repo, packages)
@@ -544,9 +563,9 @@ def get_unbuilt_package_levels(
 
 
 def build_packages(
-    repo: dict[str, Pkgbuild],
     packages: Iterable[Pkgbuild],
     arch: Arch,
+    repo: Optional[dict[str, Pkgbuild]] = None,
     force: bool = False,
     rebuild_dependants: bool = False,
     try_download: bool = False,
@@ -557,9 +576,9 @@ def build_packages(
 ):
     init_prebuilts(arch)
     build_levels = get_unbuilt_package_levels(
-        repo,
         packages,
         arch,
+        repo=repo,
         force=force,
         rebuild_dependants=rebuild_dependants,
         try_download=try_download,
@@ -588,7 +607,7 @@ def build_packages(
 def build_packages_by_paths(
     paths: Iterable[str],
     arch: Arch,
-    repo: dict[str, Pkgbuild],
+    repo: Optional[dict[str, Pkgbuild]] = None,
     force=False,
     rebuild_dependants: bool = False,
     try_download: bool = False,
@@ -602,11 +621,11 @@ def build_packages_by_paths(
 
     for _arch in set([arch, config.runtime['arch']]):
         init_prebuilts(_arch)
-    packages = filter_packages(repo, paths, allow_empty_results=False)
+    packages = filter_packages(paths, repo=repo, allow_empty_results=False)
     return build_packages(
-        repo,
         packages,
         arch,
+        repo=repo,
         force=force,
         rebuild_dependants=rebuild_dependants,
         try_download=try_download,
@@ -617,22 +636,24 @@ def build_packages_by_paths(
     )
 
 
-def build_enable_qemu_binfmt(arch: Arch, repo: dict[str, Pkgbuild] = None):
+_qemu_enabled: dict[Arch, bool] = {arch: False for arch in ARCHES}
+
+
+def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = None, lazy: bool = True):
     if arch not in ARCHES:
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
     logging.info('Installing qemu-user (building if necessary)')
+    if lazy and _qemu_enabled[arch]:
+        return
     native = config.runtime['arch']
     if arch == native:
         return
-    enforce_wrap()
-    if not repo:
-        repo = discover_pkgbuilds()
-
+    wrap_if_foreign_arch(arch)
     # build qemu-user, binfmt, crossdirect
     build_packages_by_paths(
         CROSSDIRECT_PKGS,
         native,
-        repo,
+        repo=repo,
         try_download=True,
         enable_crosscompile=False,
         enable_crossdirect=False,
@@ -643,6 +664,7 @@ def build_enable_qemu_binfmt(arch: Arch, repo: dict[str, Pkgbuild] = None):
     run_root_cmd(['pacman', '-U', '--noconfirm', '--needed'] + pkgfiles)
     if arch != native:
         binfmt_register(arch)
+    _qemu_enabled[arch] = True
 
 
 @click.group(name='packages')
@@ -654,7 +676,6 @@ def cmd_packages():
 @click.option('--non-interactive', is_flag=True)
 def cmd_update(non_interactive: bool = False):
     """Update PKGBUILDs git repo"""
-    enforce_wrap()
     init_pkgbuilds(interactive=not non_interactive)
 
 
@@ -664,7 +685,7 @@ def cmd_update(non_interactive: bool = False):
 @click.option('--rebuild-dependants', is_flag=True, default=False, help='Rebuild packages that depend on packages that will be [re]built')
 @click.option('--no-download', is_flag=True, default=False, help="Don't try downloading packages from online repos before building")
 @click.argument('paths', nargs=-1)
-def cmd_build(paths: list[str], force=False, arch=None, rebuild_dependants: bool = False, no_download: bool = False):
+def cmd_build(paths: list[str], force=False, arch: Optional[Arch] = None, rebuild_dependants: bool = False, no_download: bool = False):
     """
     Build packages (and dependencies) by paths as required.
 
@@ -675,31 +696,26 @@ def cmd_build(paths: list[str], force=False, arch=None, rebuild_dependants: bool
     Packages that aren't built already will be downloaded from HTTPS repos unless --no-download is passed,
     if an exact version match exists on the server.
     """
-    build(paths, force, arch, rebuild_dependants, not no_download)
+    build(paths, force, arch=arch, rebuild_dependants=rebuild_dependants, try_download=not no_download)
 
 
 def build(
     paths: Iterable[str],
     force: bool,
-    arch: Optional[Arch],
+    arch: Optional[Arch] = None,
     rebuild_dependants: bool = False,
     try_download: bool = False,
 ):
     # TODO: arch = config.get_profile()...
-    arch = arch or 'aarch64'
+    arch = arch or get_profile_device(hint_or_set_arch=True).arch
 
     if arch not in ARCHES:
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
-    enforce_wrap()
     config.enforce_config_loaded()
-    repo: dict[str, Pkgbuild] = discover_pkgbuilds()
-    if arch != config.runtime['arch']:
-        build_enable_qemu_binfmt(arch, repo=repo)
 
     return build_packages_by_paths(
         paths,
         arch,
-        repo,
         force=force,
         rebuild_dependants=rebuild_dependants,
         try_download=try_download,
@@ -712,10 +728,11 @@ def build(
 
 @cmd_packages.command(name='sideload')
 @click.argument('paths', nargs=-1)
-@click.option('--arch', default='aarch64', required=False, type=click.Choice(ARCHES), help="The CPU architecture to build for")
+@click.option('--arch', default=None, required=False, type=click.Choice(ARCHES), help="The CPU architecture to build for")
 @click.option('-B', '--no-build', is_flag=True, default=False, help="Don't try to build packages, just copy and install")
 def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bool = False):
     """Build packages, copy to the device via SSH and install them"""
+    arch = arch or get_profile_device(hint_or_set_arch=True).arch
     if not no_build:
         build(paths, False, arch=arch, try_download=True)
     files = [
@@ -745,7 +762,6 @@ def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bo
 @click.argument('what', type=click.Choice(['all', 'src', 'pkg']), nargs=-1)
 def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = False):
     """Remove files and directories not tracked in PKGBUILDs.git. Passing in an empty `what` defaults it to `['all']`"""
-    enforce_wrap()
     if noop:
         logging.debug('Running in noop mode!')
     if force:
@@ -754,6 +770,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
     logging.debug(f'Clearing {what} from PKGBUILDs')
     pkgbuilds = config.get_path('pkgbuilds')
     if 'all' in what:
+        check_programs_wrap(['git'])
         warning = "Really reset PKGBUILDs to git state completely?\nThis will erase any untracked changes to your PKGBUILDs directory."
         if not (noop or force or click.confirm(warning)):
             return
@@ -785,7 +802,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 
         for dir in dirs:
             if not noop:
-                rmtree(dir)
+                remove_file(dir, recursive=True)
 
 
 @cmd_packages.command(name='list')
@@ -804,7 +821,6 @@ def cmd_list():
 @click.argument('paths', nargs=-1)
 def cmd_check(paths):
     """Check that specified PKGBUILDs are formatted correctly"""
-    enforce_wrap()
 
     def check_quoteworthy(s: str) -> bool:
         quoteworthy = ['"', "'", "$", " ", ";", "&", "<", ">", "*", "?"]
@@ -814,7 +830,7 @@ def cmd_check(paths):
         return False
 
     paths = list(paths)
-    packages = filter_packages(discover_pkgbuilds(), paths, allow_empty_results=False)
+    packages = filter_packages(paths, allow_empty_results=False)
 
     for package in packages:
         name = package.name

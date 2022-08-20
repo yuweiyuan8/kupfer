@@ -15,9 +15,10 @@ from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
-from packages import build_enable_qemu_binfmt, discover_pkgbuilds, build_packages
+from packages import build_enable_qemu_binfmt, build_packages_by_paths
+from packages.device import get_profile_device
 from ssh import copy_ssh_keys
-from wrapper import enforce_wrap
+from wrapper import wrap_if_foreign_arch
 
 # image files need to be slightly smaller than partitions to fit
 IMG_FILE_ROOT_DEFAULT_SIZE = "1800M"
@@ -383,13 +384,12 @@ def cmd_build(profile_name: str = None,
 
     Unless overriden, required packages will be built or preferably downloaded from HTTPS repos.
     """
-    enforce_wrap()
+    arch = get_profile_device(profile_name).arch
+    wrap_if_foreign_arch(arch)
     profile: Profile = config.get_profile(profile_name)
     device, flavour = get_device_and_flavour(profile_name)
     size_extra_mb: int = int(profile["size_extra_mb"])
 
-    # TODO: PARSE DEVICE ARCH AND SECTOR SIZE
-    arch = 'aarch64'
     sector_size = 4096
     rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
 
@@ -400,8 +400,7 @@ def cmd_build(profile_name: str = None,
 
     if local_repos and build_pkgs:
         logging.info("Making sure all packages are built")
-        repo = discover_pkgbuilds()
-        build_packages(repo, [p for name, p in repo.items() if name in packages], arch, try_download=not no_download_pkgs)
+        build_packages_by_paths(packages, arch, try_download=not no_download_pkgs)
 
     image_path = block_target or get_image_path(device, flavour)
 
@@ -456,10 +455,9 @@ def cmd_build(profile_name: str = None,
 @click.argument('profile', required=False)
 def cmd_inspect(profile: str = None, shell: bool = False):
     """Open a shell in a device image"""
-    enforce_wrap()
+    arch = get_profile_device(profile).arch
+    wrap_if_foreign_arch(arch)
     device, flavour = get_device_and_flavour(profile)
-    # TODO: get arch from profile
-    arch = 'aarch64'
     # TODO: PARSE DEVICE SECTOR SIZE
     sector_size = 4096
     chroot = get_device_chroot(device, flavour, arch)
