@@ -1,7 +1,10 @@
 import click
 import logging
 
+from typing import Sequence, Union
+
 from config import config
+from constants import Arch
 from utils import programs_available
 from .docker import DockerWrapper
 from .wrapper import Wrapper
@@ -36,8 +39,14 @@ def enforce_wrap(no_wrapper=False):
         wrap()
 
 
-def check_programs_wrap(programs):
+def check_programs_wrap(programs: Union[str, Sequence[str]]):
     if not programs_available(programs):
+        logging.debug(f"Wrapping because one of {[programs] if isinstance(programs, str) else programs} isn't available.")
+        enforce_wrap()
+
+
+def wrap_if_foreign_arch(arch: Arch):
+    if arch != config.runtime.arch:
         enforce_wrap()
 
 
