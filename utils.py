@@ -8,12 +8,18 @@ from typing import Optional, Union, Sequence
 
 from exec.cmd import run_cmd, run_root_cmd
 
+_programs_available = dict[str, bool]()
 
-def programs_available(programs: Union[str, Sequence[str]]) -> bool:
+
+def programs_available(programs: Union[str, Sequence[str]], lazy: bool = True) -> bool:
+    global _programs_available
     if type(programs) is str:
         programs = [programs]
     for program in programs:
-        if not which(program):
+        if program not in _programs_available or not lazy:
+            avail = bool(which(program))
+            _programs_available[program] = avail
+        if not _programs_available[program]:
             return False
     return True
 
