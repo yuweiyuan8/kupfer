@@ -26,10 +26,13 @@ pytest:
   stage: check
   image: archlinux
   before_script:
-    - pacman -Sy --noconfirm --needed archlinux-keyring && pacman -Su --noconfirm python python-pip sudo git
+    - pacman -Sy --noconfirm --needed archlinux-keyring && pacman -Su --noconfirm python python-pip sudo git base-devel
     - pip install pytest -r requirements.txt
+    - 'echo "kupfer ALL = (ALL) NOPASSWD: ALL" > /etc/sudoers.d/kupfer_all'
+    - useradd -m kupfer
+    - chmod 777 .
   script:
-    - script -e -c './pytest.sh'
+    - script -e -c 'su kupfer -s /bin/bash -c ./pytest.sh'
   artifacts:
     reports:
       junit: pytest-report.xml
