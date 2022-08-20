@@ -1,4 +1,4 @@
 #!/bin/bash
 
 sudo -v
-python -m pytest -v ./*/test_*.py
+python -m pytest --junit-xml=pytest-report.xml -v ./*/test_*.py
