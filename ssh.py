@@ -7,6 +7,7 @@ import click
 from config import config
 from constants import SSH_COMMON_OPTIONS, SSH_DEFAULT_HOST, SSH_DEFAULT_PORT
 from exec.cmd import run_cmd
+from wrapper import check_programs_wrap
 
 
 @click.command(name='ssh')
@@ -24,6 +25,7 @@ def run_ssh_command(cmd: list[str] = [],
                     host: str = SSH_DEFAULT_HOST,
                     port: int = SSH_DEFAULT_PORT,
                     alloc_tty: bool = True):
+    check_programs_wrap(['ssh'])
     if not user:
         user = config.get_profile()['username']
     keys = find_ssh_keys()
@@ -50,6 +52,7 @@ def run_ssh_command(cmd: list[str] = [],
 
 
 def scp_put_files(src: list[str], dst: str, user: str = None, host: str = SSH_DEFAULT_HOST, port: int = SSH_DEFAULT_PORT):
+    check_programs_wrap(['scp'])
     if not user:
         user = config.get_profile()['username']
     keys = find_ssh_keys()
@@ -81,6 +84,7 @@ def find_ssh_keys():
 
 
 def copy_ssh_keys(root_dir: str, user: str):
+    check_programs_wrap(['ssh-keygen'])
     authorized_keys_file = os.path.join(
         root_dir,
         'home',
