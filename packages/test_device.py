@@ -39,15 +39,24 @@ ONEPLUS_ENCHILADA_PKG = f'device-{ONEPLUS_ENCHILADA}'
 
 
 @pytest.fixture(scope='session')
-def enchilada_pkgbuild(initialise_pkgbuilds_dir):
+def enchilada_pkgbuild(initialise_pkgbuilds_dir: ConfigStateHolder):
+    config = initialise_pkgbuilds_dir
     config.try_load_file()
-    return parse_pkgbuild(os.path.join('device', ONEPLUS_ENCHILADA_PKG))[0]
+    return parse_pkgbuild(os.path.join('device', ONEPLUS_ENCHILADA_PKG), config)[0]
 
 
 def validate_oneplus_enchilada(d: Device):
     assert d
     assert d.arch == 'aarch64'
     assert d.package and d.package.name == ONEPLUS_ENCHILADA_PKG
+
+
+def test_fixture_initialise_pkgbuilds_dir(initialise_pkgbuilds_dir: ConfigStateHolder):
+    assert os.path.exists(os.path.join(config.get_path('pkgbuilds'), 'device'))
+
+
+def test_fixture_pkgbuilds_dir(pkgbuilds_dir):
+    assert os.path.exists(os.path.join(pkgbuilds_dir, 'device'))
 
 
 def test_get_device():
