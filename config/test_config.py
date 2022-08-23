@@ -7,7 +7,7 @@ import toml
 from tempfile import mktemp, gettempdir as get_system_tempdir
 from typing import Optional
 
-from config.profile import Profile, PROFILE_DEFAULTS
+from config.profile import PROFILE_DEFAULTS
 from config.scheme import Config, Profile
 from config.state import CONFIG_DEFAULTS, ConfigStateHolder
 
