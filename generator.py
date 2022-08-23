@@ -193,7 +193,9 @@ export LDFLAGS="$LDFLAGS,-L/usr/{hostspec}/lib,-L/{chroot}/usr/lib,-rpath-link,/
 def generate_pacman_conf_body(
     arch: Arch,
     check_space: bool = True,
+    in_chroot: bool = True,
 ):
+    pacman_cache = config.get_path('pacman') if not in_chroot else CHROOT_PATHS['pacman']
     return f'''
 #
 # /etc/pacman.conf
@@ -208,7 +210,7 @@ def generate_pacman_conf_body(
 # If you wish to use different paths, uncomment and update the paths.
 #RootDir     = /
 #DBPath      = /var/lib/pacman/
-CacheDir    = {CHROOT_PATHS['pacman']}/{arch}
+CacheDir    = {pacman_cache}/{arch}
 #LogFile     = /var/log/pacman.log
 #GPGDir      = /etc/pacman.d/gnupg/
 #HookDir     = /etc/pacman.d/hooks/

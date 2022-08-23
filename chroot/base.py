@@ -34,7 +34,6 @@ class BaseChroot(Chroot):
             'pacstrap',
             '-C',
             pacman_conf_target,
-            '-c',
             '-G',
             self.path,
         ] + self.base_packages + [

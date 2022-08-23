@@ -37,7 +37,7 @@ class Distro:
         extras = [Repo(name, url_template=info.url_template, arch=self.arch, options=info.options, scan=False) for name, info in extra_repos.items()]
         return '\n\n'.join(repo.config_snippet() for repo in (extras + list(self.repos.values())))
 
-    def get_pacman_conf(self, extra_repos: Mapping[str, RepoInfo] = {}, check_space: bool = True):
+    def get_pacman_conf(self, extra_repos: Mapping[str, RepoInfo] = {}, check_space: bool = True, in_chroot: bool = True):
         body = generate_pacman_conf_body(self.arch, check_space=check_space)
         return body + self.repos_config_snippet(extra_repos)
 

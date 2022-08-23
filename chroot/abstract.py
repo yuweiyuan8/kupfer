@@ -300,7 +300,7 @@ class Chroot(AbstractChroot):
                     f'file://{config.get_path("packages")}',
                     1,
                 )
-        conf_text = get_base_distro(self.arch).get_pacman_conf(repos, check_space=check_space)
+        conf_text = get_base_distro(self.arch).get_pacman_conf(repos, check_space=check_space, in_chroot=in_chroot)
         write_file(absolute_path, conf_text, user=user, group=group)
 
     def create_user(
