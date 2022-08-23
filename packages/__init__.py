@@ -47,6 +47,7 @@ def get_makepkg_env(arch: Optional[Arch] = None):
     assert native
     if arch and arch != native:
         env |= {'QEMU_LD_PREFIX': f'/usr/{GCC_HOSTSPECS[native][arch]}'}
+    return env
 
 
 def init_prebuilts(arch: Arch, dir: str = None):
