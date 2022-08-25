@@ -268,7 +268,7 @@ def strip_compression_extension(filename: str):
 
 def add_package_to_repo(package: Pkgbuild, arch: Arch):
     logging.info(f'Adding {package.path} to repo {package.repo}')
-    pkgbuild_dir = os.path.join(config.get_path('pkgbuilds'), package.path)  # TODO: use CHROOT_PATHS?
+    pkgbuild_dir = os.path.join(config.get_path('pkgbuilds'), package.path)
 
     files = []
     for file in os.listdir(pkgbuild_dir):
@@ -423,8 +423,7 @@ def setup_build_chroot(
     return chroot
 
 
-def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf', pkgbuilds_dir: str = None):
-    pkgbuilds_dir = pkgbuilds_dir if pkgbuilds_dir else CHROOT_PATHS['pkgbuilds']
+def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf'):
     makepkg_setup_args = [
         '--config',
         makepkg_conf_path,
