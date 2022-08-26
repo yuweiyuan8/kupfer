@@ -162,6 +162,12 @@ CFLAGS_ARCHES: dict[Arch, list[str]] = {
     ] + CFLAGS_ALARM,
 }
 
+QEMU_ARCHES: dict[Arch, str] = {
+    'x86_64': 'x86_64',
+    'aarch64': 'aarch64',
+    'armv7h': 'arm',
+}
+
 QEMU_BINFMT_PKGS = ['qemu-user-static-bin', 'binfmt-qemu-static']
 CROSSDIRECT_PKGS = ['crossdirect'] + QEMU_BINFMT_PKGS
 

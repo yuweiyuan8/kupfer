@@ -3,6 +3,7 @@
 import os
 import logging
 
+from constants import Arch, QEMU_ARCHES
 from exec.cmd import run_root_cmd
 from utils import mount
 
@@ -38,11 +39,15 @@ def binfmt_info():
     return full
 
 
-def is_registered(arch: str) -> bool:
-    return os.path.exists("/proc/sys/fs/binfmt_misc/qemu-" + arch)
+def is_registered(arch: Arch) -> bool:
+    qemu_arch = QEMU_ARCHES[arch]
+    return os.path.exists("/proc/sys/fs/binfmt_misc/qemu-" + qemu_arch)
 
 
-def register(arch):
+def register(arch: Arch):
+    if arch not in QEMU_ARCHES:
+        raise Exception(f'binfmt.register(): unknown arch {arch} (not in QEMU_ARCHES)')
+    qemu_arch = QEMU_ARCHES[arch]
     if is_registered(arch):
         return
 
@@ -51,7 +56,7 @@ def register(arch):
     # Build registration string
     # https://en.wikipedia.org/wiki/Binfmt_misc
     # :name:type:offset:magic:mask:interpreter:flags
-    info = lines[arch]
+    info = lines[qemu_arch]
     code = info['line']
     binfmt = '/proc/sys/fs/binfmt_misc'
     register = binfmt + '/register'
@@ -70,7 +75,10 @@ def register(arch):
 
 
 def unregister(arch):
-    binfmt_file = "/proc/sys/fs/binfmt_misc/qemu-" + arch
+    if arch not in QEMU_ARCHES:
+        raise Exception(f'binfmt.unregister(): unknown arch {arch} (not in QEMU_ARCHES)')
+    qemu_arch = QEMU_ARCHES[arch]
+    binfmt_file = "/proc/sys/fs/binfmt_misc/qemu-" + qemu_arch
     if not os.path.exists(binfmt_file):
         return
     logging.info(f"Unregistering qemu binfmt ({arch})")
