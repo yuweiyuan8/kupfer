@@ -7,7 +7,7 @@ import os
 import subprocess
 
 from joblib import Parallel, delayed
-from typing import Optional, Sequence
+from typing import Optional
 
 from config import config, ConfigStateHolder
 from constants import REPOSITORIES
@@ -65,6 +65,7 @@ class Pkgbuild(PackageInfo):
     path: str
     pkgver: str
     pkgrel: str
+    sources_refreshed: bool
 
     def __init__(
         self,
@@ -74,6 +75,7 @@ class Pkgbuild(PackageInfo):
         provides: list[str] = [],
         replaces: list[str] = [],
         repo: Optional[str] = None,
+        sources_refreshed: bool = False,
     ) -> None:
         """
         Create new Pkgbuild representation for file located at `{relative_path}/PKGBUILD`.
@@ -91,9 +93,15 @@ class Pkgbuild(PackageInfo):
         self.path = relative_path
         self.pkgver = ''
         self.pkgrel = ''
+        self.sources_refreshed = sources_refreshed
 
     def __repr__(self):
-        return f'Pkgbuild({self.name},{repr(self.path)},{self.version},{self.mode})'
+        return ','.join([
+            'Pkgbuild(' + self.name,
+            repr(self.path),
+            self.version + ("🔄" if self.sources_refreshed else ""),
+            self.mode + ')',
+        ])
 
     def names(self):
         return list(set([self.name] + self.provides + self.replaces))
@@ -114,12 +122,17 @@ class Pkgbuild(PackageInfo):
         self.path = pkg.path
         self.pkgver = pkg.pkgver
         self.pkgrel = pkg.pkgrel
+        self.sources_refreshed = self.sources_refreshed or pkg.sources_refreshed
         self.update_version()
 
-class Pkgbase(Pkgbuild):
-    subpackages: Sequence[SubPkgbuild]
+    def refresh_sources(self):
+        raise NotImplementedError()
 
-    def __init__(self, relative_path: str, subpackages: Sequence[SubPkgbuild] = [], **args):
+
+class Pkgbase(Pkgbuild):
+    subpackages: list[SubPkgbuild]
+
+    def __init__(self, relative_path: str, subpackages: list[SubPkgbuild] = [], **args):
         self.subpackages = list(subpackages)
         super().__init__(relative_path, **args)
 
@@ -136,7 +149,22 @@ class Pkgbase(Pkgbuild):
             else:
                 sub_dict[name].update(new_pkg)
             updated = sub_dict[name]
+            updated.sources_refreshed = self.sources_refreshed
             self.subpackages.append(updated)
+
+    def refresh_sources(self, lazy: bool = True):
+        '''
+        Reloads the pkgbuild from disk.
+        Does **NOT** actually perform the makepkg action to refresh the pkgver() first!
+        '''
+        if lazy and self.sources_refreshed:
+            return
+        parsed = parse_pkgbuild(self.path, sources_refreshed=True)
+        basepkgs = [p for p in parsed if isinstance(p, Pkgbase)]
+        if not len(basepkgs) == 1:
+            raise Exception(f"error refreshing {self.name}: wrong number of base packages found: {basepkgs}")
+        self.sources_refreshed = True
+        self.update(basepkgs[0])
 
 
 class SubPkgbuild(Pkgbuild):
@@ -147,13 +175,18 @@ class SubPkgbuild(Pkgbuild):
         self.name = name
         self.pkgbase = pkgbase
 
+        self.sources_refreshed = False
         self.update(pkgbase)
 
         self.provides = []
         self.replaces = []
 
+    def refresh_sources(self, lazy: bool = True):
+        assert self.pkgbase
+        self.pkgbase.refresh_sources(lazy=lazy)
 
-def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] = None) -> Sequence[Pkgbuild]:
+
+def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] = None, sources_refreshed: bool = False) -> list[Pkgbuild]:
     """
     Since function may run in a different subprocess, we need to be passed the config via parameter
     """
@@ -176,7 +209,7 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
         raise Exception((f'{relative_pkg_dir}/PKGBUILD has {"no" if mode is None else "an invalid"} mode configured') +
                         (f': "{mode}"' if mode is not None else ''))
 
-    base_package = Pkgbase(relative_pkg_dir)
+    base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed)
     base_package.mode = mode
     base_package.repo = relative_pkg_dir.split('/')[0]
     srcinfo = run_cmd(
@@ -217,7 +250,7 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
         elif line.startswith('depends') or line.startswith('makedepends') or line.startswith('checkdepends') or line.startswith('optdepends'):
             current.depends.append(splits[1].split('=')[0].split(': ')[0])
 
-    results: Sequence[Pkgbuild] = list(base_package.subpackages)
+    results: list[Pkgbuild] = list(base_package.subpackages)
     if len(results) > 1:
         logging.debug(f" Split package detected: {base_package.name}: {results}")
         base_package.update_version()
@@ -238,7 +271,7 @@ _pkgbuilds_paths = dict[str, list[Pkgbuild]]()
 _pkgbuilds_scanned: bool = False
 
 
-def get_pkgbuild_by_path(relative_path: str, lazy: bool = True, _config: Optional[config] = None) -> list[Pkgbuild]:
+def get_pkgbuild_by_path(relative_path: str, lazy: bool = True, _config: Optional[ConfigStateHolder] = None) -> list[Pkgbuild]:
     global _pkgbuilds_cache, _pkgbuilds_paths
     if lazy and relative_path in _pkgbuilds_paths:
         return _pkgbuilds_paths[relative_path]
@@ -299,11 +332,11 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
         package.local_depends = package.depends.copy()
         for dep in package.depends.copy():
             found = dep in packages
-            for p in packages.values():
+            for pkg in packages.values():
                 if found:
                     break
-                if dep in p.names():
-                    logging.debug(f'Found {p.name} that provides {dep}')
+                if dep in pkg.names():
+                    logging.debug(f'Found {pkg.name} that provides {dep}')
                     found = True
                     break
             if not found:
