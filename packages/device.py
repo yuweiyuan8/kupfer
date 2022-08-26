@@ -6,7 +6,7 @@ from typing import Optional
 from config import config
 from constants import Arch, ARCHES
 from config.scheme import DataClass, munchclass
-from .pkgbuild import discover_pkgbuilds, _pkgbuilds_cache, Pkgbuild, parse_pkgbuild
+from .pkgbuild import discover_pkgbuilds, get_pkgbuild_by_path, _pkgbuilds_cache, Pkgbuild
 
 DEVICE_DEPRECATIONS = {
     "oneplus-enchilada": "sdm845-oneplus-enchilada",
@@ -105,8 +105,7 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
             else:
                 relative_path = os.path.join('device', pkgname)
                 assert os.path.exists(os.path.join(config.get_path('pkgbuilds'), relative_path))
-                pkgbuild = [p for p in parse_pkgbuild(relative_path, _config=config) if p.name == pkgname][0]
-                _pkgbuilds_cache[pkgname] = pkgbuild
+                pkgbuild = [p for p in get_pkgbuild_by_path(relative_path, lazy=lazy, _config=config) if p.name == pkgname][0]
         device = parse_device_pkg(pkgbuild)
         if lazy:
             _device_cache[name] = device

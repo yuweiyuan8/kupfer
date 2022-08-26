@@ -42,7 +42,7 @@ ONEPLUS_ENCHILADA_PKG = f'device-{ONEPLUS_ENCHILADA}'
 def enchilada_pkgbuild(initialise_pkgbuilds_dir: ConfigStateHolder):
     config = initialise_pkgbuilds_dir
     config.try_load_file()
-    return parse_pkgbuild(os.path.join('device', ONEPLUS_ENCHILADA_PKG), config)[0]
+    return parse_pkgbuild(os.path.join('device', ONEPLUS_ENCHILADA_PKG), _config=config)[0]
 
 
 def validate_oneplus_enchilada(d: Device):
