@@ -91,10 +91,19 @@ Arch: TypeAlias = str
 ARCHES = [
     'x86_64',
     'aarch64',
+    'armv7h',
 ]
 
 DistroArch: TypeAlias = Arch
 TargetArch: TypeAlias = Arch
+
+ALARM_REPOS = {
+    'core': 'http://mirror.archlinuxarm.org/$arch/$repo',
+    'extra': 'http://mirror.archlinuxarm.org/$arch/$repo',
+    'community': 'http://mirror.archlinuxarm.org/$arch/$repo',
+    'alarm': 'http://mirror.archlinuxarm.org/$arch/$repo',
+    'aur': 'http://mirror.archlinuxarm.org/$arch/$repo',
+}
 
 BASE_DISTROS: dict[DistroArch, dict[str, dict[str, str]]] = {
     'x86_64': {
@@ -105,42 +114,52 @@ BASE_DISTROS: dict[DistroArch, dict[str, dict[str, str]]] = {
         },
     },
     'aarch64': {
-        'repos': {
-            'core': 'http://mirror.archlinuxarm.org/$arch/$repo',
-            'extra': 'http://mirror.archlinuxarm.org/$arch/$repo',
-            'community': 'http://mirror.archlinuxarm.org/$arch/$repo',
-            'alarm': 'http://mirror.archlinuxarm.org/$arch/$repo',
-            'aur': 'http://mirror.archlinuxarm.org/$arch/$repo',
-        },
+        'repos': ALARM_REPOS,
+    },
+    'armv7h': {
+        'repos': ALARM_REPOS,
     },
 }
 
 COMPILE_ARCHES: dict[Arch, str] = {
     'x86_64': 'amd64',
     'aarch64': 'arm64',
+    'armv7h': 'arm',
 }
 
 GCC_HOSTSPECS: dict[DistroArch, dict[TargetArch, str]] = {
     'x86_64': {
         'x86_64': 'x86_64-pc-linux-gnu',
         'aarch64': 'aarch64-linux-gnu',
+        'armv7h': 'arm-unknown-linux-gnueabihf'
     },
     'aarch64': {
         'aarch64': 'aarch64-unknown-linux-gnu',
-    }
+    },
+    'armv7h': {
+        'armv7h': 'armv7l-unknown-linux-gnueabihf'
+    },
 }
 
 CFLAGS_GENERAL = ['-O2', '-pipe', '-fstack-protector-strong']
+CFLAGS_ALARM = [
+    ' -fno-plt',
+    '-fexceptions',
+    '-Wp,-D_FORTIFY_SOURCE=2',
+    '-Wformat',
+    '-Werror=format-security',
+    '-fstack-clash-protection',
+]
 CFLAGS_ARCHES: dict[Arch, list[str]] = {
     'x86_64': ['-march=x86-64', '-mtune=generic'],
     'aarch64': [
         '-march=armv8-a',
-        '-fexceptions',
-        '-Wp,-D_FORTIFY_SOURCE=2',
-        '-Wformat',
-        '-Werror=format-security',
-        '-fstack-clash-protection',
-    ]
+    ] + CFLAGS_ALARM,
+    'armv7h': [
+        '-march=armv7-a',
+        '-mfloat-abi=hard',
+        '-mfpu=neon',
+    ] + CFLAGS_ALARM,
 }
 
 QEMU_BINFMT_PKGS = ['qemu-user-static-bin', 'binfmt-qemu-static']
