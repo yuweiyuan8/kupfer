@@ -6,11 +6,11 @@ import multiprocessing
 import os
 import subprocess
 
-from constants import REPOSITORIES
 from joblib import Parallel, delayed
 from typing import Optional, Sequence
 
 from config import config, ConfigStateHolder
+from constants import REPOSITORIES
 from exec.cmd import run_cmd
 from constants import Arch, MAKEPKG_CMD
 from distro.package import PackageInfo
@@ -102,6 +102,19 @@ class Pkgbuild(PackageInfo):
         """updates `self.version` from `self.pkgver` and `self.pkgrel`"""
         self.version = f'{self.pkgver}-{self.pkgrel}'
 
+    def update(self, pkg: Pkgbuild):
+        self.version = pkg.version
+        self.arches = list(pkg.arches)
+        self.depends = list(pkg.depends)
+        self.provides = list(pkg.provides)
+        self.replaces = list(pkg.replaces)
+        self.local_depends = list(pkg.local_depends)
+        self.repo = pkg.repo
+        self.mode = pkg.mode
+        self.path = pkg.path
+        self.pkgver = pkg.pkgver
+        self.pkgrel = pkg.pkgrel
+        self.update_version()
 
 class Pkgbase(Pkgbuild):
     subpackages: Sequence[SubPkgbuild]
@@ -109,6 +122,21 @@ class Pkgbase(Pkgbuild):
     def __init__(self, relative_path: str, subpackages: Sequence[SubPkgbuild] = [], **args):
         self.subpackages = list(subpackages)
         super().__init__(relative_path, **args)
+
+    def update(self, pkg: Pkgbuild):
+        if not isinstance(pkg, Pkgbase):
+            raise Exception(f"Tried to update pkgbase {self.name} with non-base pkg {pkg}")
+        Pkgbuild.update(self, pkg)
+        sub_dict = {p.name: p for p in self.subpackages}
+        self.subpackages.clear()
+        for new_pkg in pkg.subpackages:
+            name = new_pkg.name
+            if name not in sub_dict:
+                sub_dict[name] = new_pkg
+            else:
+                sub_dict[name].update(new_pkg)
+            updated = sub_dict[name]
+            self.subpackages.append(updated)
 
 
 class SubPkgbuild(Pkgbuild):
@@ -119,18 +147,10 @@ class SubPkgbuild(Pkgbuild):
         self.name = name
         self.pkgbase = pkgbase
 
-        self.version = pkgbase.version
-        self.arches = pkgbase.arches
-        self.depends = list(pkgbase.depends)
+        self.update(pkgbase)
+
         self.provides = []
         self.replaces = []
-        self.local_depends = list(pkgbase.local_depends)
-        self.repo = pkgbase.repo
-        self.mode = pkgbase.mode
-        self.path = pkgbase.path
-        self.pkgver = pkgbase.pkgver
-        self.pkgrel = pkgbase.pkgrel
-        self.update_version()
 
 
 def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] = None) -> Sequence[Pkgbuild]:
@@ -214,7 +234,19 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
 
 
 _pkgbuilds_cache = dict[str, Pkgbuild]()
+_pkgbuilds_paths = dict[str, list[Pkgbuild]]()
 _pkgbuilds_scanned: bool = False
+
+
+def get_pkgbuild_by_path(relative_path: str, lazy: bool = True, _config: Optional[config] = None) -> list[Pkgbuild]:
+    global _pkgbuilds_cache, _pkgbuilds_paths
+    if lazy and relative_path in _pkgbuilds_paths:
+        return _pkgbuilds_paths[relative_path]
+    parsed = parse_pkgbuild(relative_path, _config=_config)
+    _pkgbuilds_paths[relative_path] = parsed
+    for pkg in parsed:
+        _pkgbuilds_cache[pkg.name] = pkg
+    return parsed
 
 
 def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
@@ -230,17 +262,29 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
         for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
             paths.append(os.path.join(repo, dir))
 
-    results = []
-
     logging.info("Parsing PKGBUILDs")
 
-    logging.debug(f"About to parse pkgbuilds. verbosity: {config.runtime['verbose']}")
+    results = []
     if parallel:
-        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(delayed(parse_pkgbuild)(path, config) for path in paths))
+        paths_filtered = paths
+        if lazy:
+            # filter out cached packages as the caches don't cross process boundaries
+            paths_filtered = []
+            for p in paths:
+                if p in _pkgbuilds_paths:
+                    # use cache
+                    results += _pkgbuilds_paths[p]
+                else:
+                    paths_filtered += [p]
+        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(
+            delayed(get_pkgbuild_by_path)(path, lazy=lazy, _config=config) for path in paths_filtered))
     else:
-        chunks = (parse_pkgbuild(path) for path in paths)
+        chunks = (get_pkgbuild_by_path(path, lazy=lazy) for path in paths)
 
+    _pkgbuilds_paths.clear()
+    # one list of packages per path
     for pkglist in chunks:
+        _pkgbuilds_paths[pkglist[0].path] = pkglist
         results += pkglist
 
     logging.debug('Building package dictionary!')
