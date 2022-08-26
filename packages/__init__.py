@@ -42,6 +42,7 @@ def get_makepkg_env(arch: Optional[Arch] = None):
         'LANG': 'C',
         'CARGO_BUILD_JOBS': str(threads),
         'MAKEFLAGS': f"-j{threads}",
+        'HOME': '/root',
     }
     native = config.runtime.arch
     assert native
@@ -423,6 +424,15 @@ def setup_build_chroot(
     return chroot
 
 
+def setup_git_insecure_paths(chroot: BuildChroot):
+    chroot.run_cmd(
+        ["git", "config", "--global", "--add", "safe.directory", "'*'"],
+        inner_env={
+            'HOME': '/root'
+        },
+    ).check_returncode()  # type: ignore[union-attr]
+
+
 def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf'):
     makepkg_setup_args = [
         '--config',
@@ -434,7 +444,12 @@ def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/et
     ]
 
     logging.info(f'Setting up sources for {package.path} in {chroot.name}')
-    result = chroot.run_cmd(MAKEPKG_CMD + makepkg_setup_args, cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path))
+    setup_git_insecure_paths(chroot)
+    result = chroot.run_cmd(
+        MAKEPKG_CMD + makepkg_setup_args,
+        cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path),
+        inner_env=get_makepkg_env(chroot.arch),
+    )
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
         raise Exception(f'Failed to check sources for {package.path}')
@@ -506,6 +521,7 @@ def build_package(
         if failed_deps:
             raise Exception(f'Dependencies failed to install: {failed_deps}')
 
+    setup_git_insecure_paths(build_root)
     makepkg_conf_absolute = os.path.join('/', makepkg_conf_path)
     setup_sources(package, build_root, makepkg_conf_path=makepkg_conf_absolute)
 
