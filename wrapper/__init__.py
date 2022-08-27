@@ -51,10 +51,10 @@ def wrap_if_foreign_arch(arch: Arch):
 
 
 nowrapper_option = click.option(
-    '-W',
-    '--no-wrapper',
-    'no_wrapper',
+    '-w/-W',
+    '--force-wrapper/--no-wrapper',
+    'wrapper_override',
     is_flag=True,
-    default=False,
-    help='Disable the docker wrapper. Defaults to autodetection.',
+    default=None,
+    help='Force or disable the docker wrapper. Defaults to autodetection.',
 )
