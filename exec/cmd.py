@@ -14,6 +14,7 @@ ElevationMethod: TypeAlias = str
 ELEVATION_METHOD_DEFAULT = "sudo"
 
 ELEVATION_METHODS: dict[ElevationMethod, list[str]] = {
+    "none": [],
     "sudo": ['sudo', '--'],
 }
 

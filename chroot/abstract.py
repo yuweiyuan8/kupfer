@@ -10,7 +10,7 @@ from uuid import uuid4
 from config import config
 from constants import Arch, CHROOT_PATHS, GCC_HOSTSPECS
 from distro.distro import get_base_distro, get_kupfer_local, RepoInfo
-from exec.cmd import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash
+from exec.cmd import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash, generate_cmd_su
 from exec.file import makedir, root_makedir, root_write_file, write_file
 from generator import generate_makepkg_conf
 from utils import mount, umount, check_findmnt, log_or_exception
@@ -223,6 +223,7 @@ class Chroot(AbstractChroot):
         cwd: Optional[str] = None,
         fail_inactive: bool = True,
         stdout: Optional[int] = None,
+        switch_user: Optional[str] = None,
     ) -> Union[int, subprocess.CompletedProcess]:
         if not self.active and fail_inactive:
             raise Exception(f'Chroot {self.name} is inactive, not running command! Hint: pass `fail_inactive=False`')
@@ -239,7 +240,11 @@ class Chroot(AbstractChroot):
             script = flatten_shell_script(script, shell_quote_items=False, wrap_in_shell_quote=False)
         if cwd:
             script = f"cd {shell_quote(cwd)} && ( {script} )"
-        cmd = flatten_shell_script(['chroot', self.path] + env_cmd + wrap_in_bash(script, flatten_result=False), shell_quote_items=True)
+        if switch_user:
+            inner_cmd = generate_cmd_su(script, switch_user=switch_user, elevation_method='none', force_su=True)
+        else:
+            inner_cmd = wrap_in_bash(script, flatten_result=False)
+        cmd = flatten_shell_script(['chroot', self.path] + env_cmd + inner_cmd, shell_quote_items=True)
 
         return run_root_cmd(cmd, env=outer_env, attach_tty=attach_tty, capture_output=capture_output, stdout=stdout)
 
