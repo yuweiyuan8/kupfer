@@ -62,10 +62,13 @@ class DockerWrapper(BaseWrapper):
 
             wrapped_config = self.generate_wrapper_config()
 
+            target_user = 'root' if config.runtime.uid == 0 else 'kupfer'
+            target_home = '/root' if target_user == 'root' else f'/home/{target_user}'
+
             ssh_dir = os.path.join(pathlib.Path.home(), '.ssh')
             if not os.path.exists(ssh_dir):
                 os.makedirs(ssh_dir, mode=0o700)
-            volumes = self.get_bind_mounts_default(wrapped_config)
+            volumes = self.get_bind_mounts_default(wrapped_config, ssh_dir=ssh_dir, target_home=target_home)
             volumes |= dict({config.get_path(vol_name): vol_dest for vol_name, vol_dest in DOCKER_PATHS.items()})
             docker_cmd = [
                 'docker',
@@ -78,7 +81,9 @@ class DockerWrapper(BaseWrapper):
                 '--privileged',
             ] + docker_volumes_args(volumes) + [tag]
 
-            kupfer_cmd = ['kupferbootstrap', '--config', '/root/.config/kupfer/kupferbootstrap.toml'] + self.filter_args_wrapper(sys.argv[1:])
+            kupfer_cmd = ['kupferbootstrap', '--config', volumes[wrapped_config]] + self.filter_args_wrapper(sys.argv[1:])
+            if config.runtime.uid:
+                kupfer_cmd = ['wrapper_su_helper', '--uid', str(config.runtime.uid), '--username', 'kupfer', '--'] + kupfer_cmd
 
             cmd = docker_cmd + kupfer_cmd
             logging.debug('Wrapping in docker:' + repr(cmd))

@@ -27,7 +27,7 @@ class Wrapper(Protocol):
 
 
 class BaseWrapper(Wrapper):
-    id: str
+    uuid: str
     identifier: str
     type: str
     wrapped_config_path: str
