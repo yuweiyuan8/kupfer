@@ -337,6 +337,14 @@ class Chroot(AbstractChroot):
         if result.returncode != 0:
             raise Exception(f'Failed to setup user {user} in self.name')
 
+    def add_sudo_config(self, config_name: str = 'wheel', privilegee: str = '%wheel', password_required: bool = True):
+        if '.' in config_name:
+            raise Exception(f"won't create sudoers.d file {config_name} since it will be ignored by sudo because it contains a dot!")
+        comment = ('# allow ' + (f'members of group {privilegee.strip("%")}' if privilegee.startswith('%') else f'user {privilegee}') +
+                   'to run any program as root' + ('' if password_required else ' without a password'))
+        line = privilegee + (' ALL=(ALL:ALL) ALL' if password_required else ' ALL=(ALL) NOPASSWD: ALL')
+        root_write_file(self.get_path(f'/etc/sudoers.d/{config_name}'), f'{comment}\n{line}')
+
     def try_install_packages(
         self,
         packages: list[str],

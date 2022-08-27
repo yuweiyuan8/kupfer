@@ -319,6 +319,7 @@ def install_rootfs(
         user=user,
         password=profile['password'],
     )
+    chroot.add_sudo_config(config_name='wheel', privilegee='%wheel', password_required=True)
     copy_ssh_keys(
         chroot.path,
         user=user,
@@ -329,7 +330,6 @@ def install_rootfs(
             extra_repos=get_kupfer_https(arch).repos,
             in_chroot=True,
         ),
-        'etc/sudoers.d/wheel': "# allow members of group wheel to execute any command\n%wheel ALL=(ALL:ALL) ALL\n",
         'etc/hostname': profile['hostname'],
     }
     for target, content in files.items():
