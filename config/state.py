@@ -53,11 +53,12 @@ CONFIG_SECTIONS = list(CONFIG_DEFAULTS.keys())
 
 CONFIG_RUNTIME_DEFAULTS: RuntimeConfiguration = RuntimeConfiguration.fromDict({
     'verbose': False,
-    'config_file': None,
-    'arch': None,
     'no_wrap': False,
-    'script_source_dir': os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
     'error_shell': False,
+    'config_file': None,
+    'script_source_dir': None,
+    'arch': None,
+    'uid': None,
 })
 
 
@@ -194,7 +195,9 @@ class ConfigStateHolder:
         self.file = Config.fromDict(merge_configs(conf_new=file_conf_base, conf_base=CONFIG_DEFAULTS))
         self.file_state = ConfigLoadState()
         self.runtime = RuntimeConfiguration.fromDict(CONFIG_RUNTIME_DEFAULTS | runtime_conf)
-        self.runtime['arch'] = os.uname().machine
+        self.runtime.arch = os.uname().machine
+        self.runtime.script_source_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        self.runtime.uid = os.getuid()
         self._profile_cache = {}
         if file_conf_path:
             self.try_load_file(file_conf_path)

@@ -200,11 +200,12 @@ class Config(DataClass):
 @munchclass()
 class RuntimeConfiguration(DataClass):
     verbose: bool
-    config_file: Optional[str]
-    arch: Optional[Arch]
     no_wrap: bool
-    script_source_dir: str
     error_shell: bool
+    config_file: Optional[str]
+    script_source_dir: Optional[str]
+    arch: Optional[Arch]
+    uid: Optional[int]
 
 
 class ConfigLoadState(DataClass):
