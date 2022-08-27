@@ -311,17 +311,21 @@ class Chroot(AbstractChroot):
 
     def create_user(
         self,
-        user='kupfer',
-        password='123456',
-        groups=['network', 'video', 'audio', 'optical', 'storage', 'input', 'scanner', 'games', 'lp', 'rfkill', 'wheel'],
+        user: str = 'kupfer',
+        password: Optional[str] = None,
+        groups: list[str] = ['network', 'video', 'audio', 'optical', 'storage', 'input', 'scanner', 'games', 'lp', 'rfkill', 'wheel'],
+        uid: Optional[int] = None,
+        non_unique: bool = False,
     ):
         user = user or 'kupfer'
+        uid_param = f'-u {uid}' if uid is not None else ''
+        unique_param = '--non-unique' if non_unique else ''
         install_script = f'''
                 set -e
                 if ! id -u "{user}" >/dev/null 2>&1; then
-                  useradd -m {user}
+                  useradd -m {unique_param} {uid_param} {user}
                 fi
-                usermod -a -G {",".join(groups)} {user}
+                usermod -a -G {",".join(groups)} {unique_param} {uid_param} {user}
                 chown {user}:{user} /home/{user} -R
             '''
         if password:
@@ -329,8 +333,9 @@ class Chroot(AbstractChroot):
         else:
             install_script += f'echo "Set user password:" && passwd {user}'
         result = self.run_cmd(install_script)
+        assert isinstance(result, subprocess.CompletedProcess)
         if result.returncode != 0:
-            raise Exception('Failed to setup user')
+            raise Exception(f'Failed to setup user {user} in self.name')
 
     def try_install_packages(
         self,
