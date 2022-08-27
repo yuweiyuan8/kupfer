@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import click
-from traceback import format_exc as get_trace
 import subprocess
 
+from traceback import format_exc as get_trace
+from typing import Optional
+
 from logger import logging, setup_logging, verbose_option
-from wrapper import nowrapper_option
+from wrapper import nowrapper_option, enforce_wrap
 from config import config, config_option, cmd_config
 from forwarding import cmd_forwarding
 from packages import cmd_packages
@@ -23,12 +25,14 @@ from ssh import cmd_ssh
 @verbose_option
 @config_option
 @nowrapper_option
-def cli(verbose: bool = False, config_file: str = None, no_wrapper: bool = False, error_shell: bool = False):
+def cli(verbose: bool = False, config_file: str = None, wrapper_override: Optional[bool] = None, error_shell: bool = False):
     setup_logging(verbose)
     config.runtime['verbose'] = verbose
-    config.runtime['no_wrap'] = no_wrapper
+    config.runtime['no_wrap'] = wrapper_override is False
     config.runtime['error_shell'] = error_shell
     config.try_load_file(config_file)
+    if wrapper_override:
+        enforce_wrap()
 
 
 def main():
