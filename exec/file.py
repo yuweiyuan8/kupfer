@@ -82,8 +82,12 @@ def write_file(
     fstat: os.stat_result
     exists = root_check_exists(path)
     dirname = os.path.dirname(path)
+    failed = False
     if exists:
-        fstat = os.stat(path)
+        try:
+            fstat = os.stat(path)
+        except PermissionError:
+            failed = True
     else:
         chown_user = chown_user or get_user_name(os.getuid())
         chown_group = chown_group or get_group_name(os.getgid())
@@ -94,9 +98,10 @@ def write_file(
     if mode:
         if not mode.isnumeric():
             raise Exception(f"Unknown file mode '{mode}' (must be numeric): {path}")
-        if not exists or stat.filemode(int(mode, 8)) != stat.filemode(fstat.st_mode):
+        if not exists or failed or stat.filemode(int(mode, 8)) != stat.filemode(fstat.st_mode):
             chmod_mode = mode
-    failed = try_native_filewrite(path, content, chmod_mode)
+    if not failed:
+        failed = try_native_filewrite(path, content, chmod_mode) is not None
     if exists or failed:
         if failed:
             try:
