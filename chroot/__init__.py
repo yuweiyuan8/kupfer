@@ -50,7 +50,7 @@ def cmd_chroot(type: str = 'build', arch: str = None, enable_crossdirect=True):
                 build_chroot.initialize()
             build_chroot.initialized = True
             build_chroot.mount_pkgbuilds()
-            if config.file['build']['crossdirect'] and enable_crossdirect:
+            if config.file.build.crossdirect and enable_crossdirect:
                 build_chroot.mount_crossdirect()
         else:
             raise Exception('Really weird bug')

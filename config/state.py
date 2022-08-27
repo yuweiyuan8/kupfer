@@ -204,7 +204,7 @@ class ConfigStateHolder:
 
     def try_load_file(self, config_file=None, base=CONFIG_DEFAULTS):
         config_file = config_file or CONFIG_DEFAULT_PATH
-        self.runtime['config_file'] = config_file
+        self.runtime.config_file = config_file
         self._profile_cache = None
         try:
             self.file = parse_file(config_file=config_file, base=base)
@@ -227,8 +227,8 @@ class ConfigStateHolder:
             raise ex
 
     def get_profile(self, name: Optional[str] = None) -> Profile:
-        name = name or self.file['profiles']['current']
-        self._profile_cache = resolve_profile(name=name, sparse_profiles=self.file['profiles'], resolved=self._profile_cache)
+        name = name or self.file.profiles.current
+        self._profile_cache = resolve_profile(name=name, sparse_profiles=self.file.profiles, resolved=self._profile_cache)
         return self._profile_cache[name]
 
     def enforce_profile_device_set(self, profile_name: Optional[str] = None, hint_or_set_arch: bool = False) -> Profile:
@@ -255,7 +255,7 @@ class ConfigStateHolder:
         return profile
 
     def get_path(self, path_name: str) -> str:
-        paths = self.file['paths']
+        paths = self.file.paths
         return resolve_path_template(paths[path_name], paths)
 
     def get_package_dir(self, arch: str):
@@ -268,7 +268,8 @@ class ConfigStateHolder:
     def write(self, path=None):
         """write toml representation of `self.file` to `path`"""
         if path is None:
-            path = self.runtime['config_file']
+            path = self.runtime.config_file
+        assert path
         os.makedirs(os.path.dirname(path), exist_ok=True)
         dump_file(path, self.file)
         logging.info(f'Created config file at {path}')
@@ -282,18 +283,18 @@ class ConfigStateHolder:
         merged = merge_configs(config_fragment, conf_base=self.file, warn_missing_defaultprofile=warn_missing_defaultprofile)
         changed = self.file != merged
         self.file.update(merged)
-        if changed and 'profiles' in config_fragment and self.file['profiles'] != config_fragment['profiles']:
+        if changed and 'profiles' in config_fragment and self.file.profiles != config_fragment['profiles']:
             self.invalidate_profile_cache()
         return changed
 
     def update_profile(self, name: str, profile: Profile, merge: bool = False, create: bool = True, prune: bool = True):
         new = {}
-        if name not in self.file['profiles']:
+        if name not in self.file.profiles:
             if not create:
                 raise Exception(f'Unknown profile: {name}')
         else:
             if merge:
-                new = deepcopy(self.file['profiles'][name])
+                new = deepcopy(self.file.profiles[name])
 
         logging.debug(f'new: {new}')
         logging.debug(f'profile: {profile}')
@@ -301,5 +302,5 @@ class ConfigStateHolder:
 
         if prune:
             new = {key: val for key, val in new.items() if val is not None}
-        self.file['profiles'][name] = new
+        self.file.profiles[name] = new
         self.invalidate_profile_cache()

@@ -22,7 +22,8 @@ class DockerWrapper(BaseWrapper):
     type: str = 'docker'
 
     def wrap(self):
-        script_path = config.runtime['script_source_dir']
+        script_path = config.runtime.script_source_dir
+        assert script_path
         with open(os.path.join(script_path, 'version.txt')) as version_file:
             version = version_file.read().replace('\n', '')
             tag = f'registry.gitlab.com/kupfer/kupferbootstrap:{version}'
@@ -34,7 +35,7 @@ class DockerWrapper(BaseWrapper):
                     '.',
                     '-t',
                     tag,
-                ] + (['-q'] if not config.runtime['verbose'] else [])
+                ] + (['-q'] if not config.runtime.verbose else [])
                 logging.debug('Running docker cmd: ' + ' '.join(cmd))
                 result = subprocess.run(cmd, cwd=script_path, capture_output=True)
                 if result.returncode != 0:

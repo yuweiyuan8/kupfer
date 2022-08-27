@@ -69,7 +69,8 @@ class BuildChroot(Chroot):
         """
         target_arch = self.arch
         if not native_chroot:
-            native_chroot = get_build_chroot(config.runtime['arch'])
+            assert config.runtime.arch
+            native_chroot = get_build_chroot(config.runtime.arch)
         host_arch = native_chroot.arch
         hostspec = GCC_HOSTSPECS[host_arch][target_arch]
         cc = f'{hostspec}-cc'

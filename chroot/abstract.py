@@ -228,7 +228,8 @@ class Chroot(AbstractChroot):
             raise Exception(f'Chroot {self.name} is inactive, not running command! Hint: pass `fail_inactive=False`')
         if outer_env is None:
             outer_env = {}
-        native = config.runtime['arch']
+        native = config.runtime.arch
+        assert native
         if self.arch != native and 'QEMU_LD_PREFIX' not in outer_env:
             outer_env = dict(outer_env)  # copy dict for modification
             outer_env |= {'QEMU_LD_PREFIX': f'/usr/{GCC_HOSTSPECS[native][self.arch]}'}
@@ -285,7 +286,7 @@ class Chroot(AbstractChroot):
         user = None
         group = None
         if check_space is None:
-            check_space = config.file['pacman']['check_space']
+            check_space = config.file.pacman.check_space
         if not absolute_path:
             path = self.get_path('/etc')
             root_makedir(path)

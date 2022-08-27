@@ -53,7 +53,7 @@ def validate_ConfigStateHolder(c: ConfigStateHolder, should_load: Optional[bool]
 def test_fixture_configstate(conf_fixture: str, exists: bool, request):
     configstate = request.getfixturevalue(conf_fixture)
     assert 'config_file' in configstate.runtime
-    confpath = configstate.runtime['config_file']
+    confpath = configstate.runtime.config_file
     assert isinstance(confpath, str)
     assert confpath
     assert exists == os.path.exists(confpath)
@@ -124,12 +124,13 @@ def load_toml_file(path) -> dict:
 
 
 def get_path_from_stateholder(c: ConfigStateHolder):
-    return c.runtime['config_file']
+    return c.runtime.config_file
 
 
 def test_config_save_nonexistant(configstate_nonexistant: ConfigStateHolder):
     c = configstate_nonexistant
-    confpath = c.runtime['config_file']
+    confpath = c.runtime.config_file
+    assert confpath
     assert not os.path.exists(confpath)
     c.write()
     assert confpath
