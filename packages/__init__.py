@@ -42,7 +42,6 @@ def get_makepkg_env(arch: Optional[Arch] = None):
         'LANG': 'C',
         'CARGO_BUILD_JOBS': str(threads),
         'MAKEFLAGS': f"-j{threads}",
-        'HOME': '/root',
     }
     native = config.runtime.arch
     assert native
@@ -349,10 +348,7 @@ def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: boo
         '--skippgpcheck',
         '--packagelist',
     ]
-    result: Any = native_chroot.run_cmd(
-        cmd,
-        capture_output=True,
-    )
+    result: Any = native_chroot.run_cmd(cmd, capture_output=True, switch_user='kupfer')
     if result.returncode != 0:
         raise Exception(f'Failed to get package list for {package.path}:' + '\n' + result.stdout.decode() + '\n' + result.stderr.decode())
 
@@ -423,19 +419,23 @@ def setup_build_chroot(
     chroot.mount_pkgbuilds()
     if extra_packages:
         chroot.try_install_packages(extra_packages, allow_fail=False)
+    if not os.path.exists(chroot.get_path('/home/kupfer')):
+        assert config.runtime.uid is not None
+        chroot.create_user('kupfer', password='12345678', uid=config.runtime.uid, non_unique=True)
+    if not os.path.exists(chroot.get_path('/etc/sudoers.d/kupfer_nopw')):
+        chroot.add_sudo_config('kupfer_nopw', 'kupfer', password_required=False)
+
     return chroot
 
 
-def setup_git_insecure_paths(chroot: BuildChroot):
+def setup_git_insecure_paths(chroot: BuildChroot, username: str = 'kupfer'):
     chroot.run_cmd(
         ["git", "config", "--global", "--add", "safe.directory", "'*'"],
-        inner_env={
-            'HOME': '/root'
-        },
+        switch_user=username,
     ).check_returncode()  # type: ignore[union-attr]
 
 
-def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf'):
+def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf', switch_user: str = 'kupfer'):
     makepkg_setup_args = [
         '--config',
         makepkg_conf_path,
@@ -451,6 +451,7 @@ def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/et
         MAKEPKG_CMD + makepkg_setup_args,
         cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path),
         inner_env=get_makepkg_env(chroot.arch),
+        switch_user=switch_user,
     )
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
@@ -530,7 +531,12 @@ def build_package(
 
     build_cmd = f'makepkg --config {makepkg_conf_absolute} --skippgpcheck --needed --noconfirm --ignorearch {" ".join(makepkg_compile_opts)}'
     logging.debug(f'Building: Running {build_cmd}')
-    result = build_root.run_cmd(build_cmd, inner_env=env, cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path))
+    result = build_root.run_cmd(
+        build_cmd,
+        inner_env=env,
+        cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path),
+        switch_user='kupfer',
+    )
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
         raise Exception(f'Failed to compile package {package.path}')
