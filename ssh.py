@@ -32,7 +32,7 @@ def run_ssh_command(cmd: list[str] = [],
     extra_args = []
     if len(keys) > 0:
         extra_args += ['-i', keys[0]]
-    if config.runtime['verbose']:
+    if config.runtime.verbose:
         extra_args += ['-v']
     if alloc_tty:
         extra_args += ['-t']

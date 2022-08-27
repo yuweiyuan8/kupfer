@@ -7,7 +7,8 @@ def generate_makepkg_conf(arch: Arch, cross: bool = False, chroot: str = None) -
     Generate a makepkg.conf. For use with crosscompiling, specify `cross=True` and pass as `chroot`
     the relative path inside the native chroot where the foreign chroot will be mounted.
     """
-    hostspec = GCC_HOSTSPECS[config.runtime['arch'] if cross else arch][arch]
+    assert config.runtime.arch
+    hostspec = GCC_HOSTSPECS[config.runtime.arch if cross else arch][arch]
     cflags = CFLAGS_ARCHES[arch] + CFLAGS_GENERAL
     if cross and not chroot:
         raise Exception('Cross-compile makepkg conf requested but no chroot path given: "{chroot}"')
@@ -233,7 +234,7 @@ Color
 #NoProgressBar
 {'' if check_space else '#'}CheckSpace
 VerbosePkgLists
-ParallelDownloads = {config.file['pacman']['parallel_downloads']}
+ParallelDownloads = {config.file.pacman.parallel_downloads}
 
 # By default, pacman accepts packages signed by keys that its local keyring
 # trusts (see pacman-key and its man page), as well as unsigned packages.

@@ -66,8 +66,8 @@ def prompt_profile(name: str, create: bool = True, defaults: Union[Profile, dict
 
     profile: Any = PROFILE_EMPTY | defaults
     # don't use get_profile() here because we need the sparse profile
-    if name in config.file['profiles']:
-        profile |= config.file['profiles'][name]
+    if name in config.file.profiles:
+        profile |= config.file.profiles[name]
     elif create:
         logging.info(f"Profile {name} doesn't exist yet, creating new profile.")
     else:
@@ -113,7 +113,7 @@ def prompt_for_save(retry_ctx: Optional[click.Context] = None):
     If `retry_ctx` is passed, the context's command will be reexecuted with the same arguments if the user chooses to retry.
     False will still be returned as the retry is expected to either save, perform another retry or arbort.
     """
-    if click.confirm(f'Do you want to save your changes to {config.runtime["config_file"]}?', default=True):
+    if click.confirm(f'Do you want to save your changes to {config.runtime.config_file}?', default=True):
         return True
     if retry_ctx:
         if click.confirm('Retry? ("n" to quit without saving)', default=True):
@@ -171,7 +171,7 @@ def cmd_config_init(ctx, sections: list[str] = CONFIG_SECTIONS, non_interactive:
 
         config.update(results)
         if 'profiles' in sections:
-            current_profile = 'default' if 'current' not in config.file['profiles'] else config.file['profiles']['current']
+            current_profile = 'default' if 'current' not in config.file.profiles else config.file.profiles.current
             new_current, _ = prompt_config('profile.current', default=current_profile, field_type=str)
             profile, changed = prompt_profile(new_current, create=True)
             config.update_profile(new_current, profile)
@@ -182,7 +182,7 @@ def cmd_config_init(ctx, sections: list[str] = CONFIG_SECTIONS, non_interactive:
     if not noop:
         config.write()
     else:
-        logging.info(f'--noop passed, not writing to {config.runtime["config_file"]}!')
+        logging.info(f'--noop passed, not writing to {config.runtime.config_file}!')
 
 
 @cmd_config.command(name='set')
@@ -250,8 +250,8 @@ def cmd_profile():
 def cmd_profile_init(ctx, name: str, non_interactive: bool = False, noop: bool = False):
     """Create or edit a profile"""
     profile = deepcopy(PROFILE_EMPTY)
-    if name in config.file['profiles']:
-        profile |= config.file['profiles'][name]
+    if name in config.file.profiles:
+        profile |= config.file.profiles[name]
 
     if not non_interactive:
         profile, _changed = prompt_profile(name, create=True)
@@ -262,4 +262,4 @@ def cmd_profile_init(ctx, name: str, non_interactive: bool = False, noop: bool =
             return
         config.write()
     else:
-        logging.info(f'--noop passed, not writing to {config.runtime["config_file"]}!')
+        logging.info(f'--noop passed, not writing to {config.runtime.config_file}!')

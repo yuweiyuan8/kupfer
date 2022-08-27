@@ -399,7 +399,7 @@ def cmd_build(profile_name: str = None,
 
     packages = BASE_PACKAGES + DEVICES[device] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
 
-    if arch != config.runtime['arch']:
+    if arch != config.runtime.arch:
         build_enable_qemu_binfmt(arch)
 
     if local_repos and build_pkgs:
@@ -475,7 +475,7 @@ def cmd_inspect(profile: str = None, shell: bool = False):
     if shell:
         chroot.initialized = True
         chroot.activate()
-        if arch != config.runtime['arch']:
+        if arch != config.runtime.arch:
             logging.info('Installing requisites for foreign-arch shell')
             build_enable_qemu_binfmt(arch)
         logging.info('Starting inspection shell')

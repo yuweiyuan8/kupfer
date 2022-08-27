@@ -36,7 +36,7 @@ pacman_cmd = [
 
 def get_makepkg_env(arch: Optional[Arch] = None):
     # has to be a function because calls to `config` must be done after config file was read
-    threads = config.file['build']['threads'] or multiprocessing.cpu_count()
+    threads = config.file.build.threads or multiprocessing.cpu_count()
     env = {key: val for key, val in os.environ.items() if not key.split('_', maxsplit=1)[0] in ['CI', 'GITLAB', 'FF']}
     env |= {
         'LANG': 'C',
@@ -333,7 +333,8 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
 
 def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: bool = False) -> bool:
     enforce_wrap()
-    native_chroot = setup_build_chroot(config.runtime['arch'])
+    assert config.runtime.arch
+    native_chroot = setup_build_chroot(config.runtime.arch)
     config_path = '/' + native_chroot.write_makepkg_conf(
         target_arch=arch,
         cross_chroot_relative=os.path.join('chroot', arch),
@@ -407,7 +408,8 @@ def setup_build_chroot(
     add_kupfer_repos: bool = True,
     clean_chroot: bool = False,
 ) -> BuildChroot:
-    if arch != config.runtime['arch']:
+    assert config.runtime.arch
+    if arch != config.runtime.arch:
         wrap_if_foreign_arch(arch)
         build_enable_qemu_binfmt(arch)
     init_prebuilts(arch)
@@ -467,15 +469,16 @@ def build_package(
     makepkg_compile_opts = ['--holdver']
     makepkg_conf_path = 'etc/makepkg.conf'
     repo_dir = repo_dir if repo_dir else config.get_path('pkgbuilds')
-    foreign_arch = config.runtime['arch'] != arch
+    foreign_arch = config.runtime.arch != arch
     deps = (list(set(package.depends) - set(package.names())))
     target_chroot = setup_build_chroot(
         arch=arch,
         extra_packages=deps,
         clean_chroot=clean_chroot,
     )
+    assert config.runtime.arch
     native_chroot = target_chroot if not foreign_arch else setup_build_chroot(
-        arch=config.runtime['arch'],
+        arch=config.runtime.arch,
         extra_packages=['base-devel'] + CROSSDIRECT_PKGS,
         clean_chroot=clean_chroot,
     )
@@ -635,7 +638,8 @@ def build_packages_by_paths(
     if isinstance(paths, str):
         paths = [paths]
 
-    for _arch in set([arch, config.runtime['arch']]):
+    assert config.runtime.arch
+    for _arch in set([arch, config.runtime.arch]):
         init_prebuilts(_arch)
     packages = filter_packages(paths, repo=repo, allow_empty_results=False)
     return build_packages(
@@ -661,7 +665,8 @@ def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = N
     logging.info('Installing qemu-user (building if necessary)')
     if lazy and _qemu_enabled[arch]:
         return
-    native = config.runtime['arch']
+    native = config.runtime.arch
+    assert native
     if arch == native:
         return
     wrap_if_foreign_arch(arch)
@@ -735,10 +740,10 @@ def build(
         force=force,
         rebuild_dependants=rebuild_dependants,
         try_download=try_download,
-        enable_crosscompile=config.file['build']['crosscompile'],
-        enable_crossdirect=config.file['build']['crossdirect'],
-        enable_ccache=config.file['build']['ccache'],
-        clean_chroot=config.file['build']['clean_mode'],
+        enable_crosscompile=config.file.build.crosscompile,
+        enable_crossdirect=config.file.build.crossdirect,
+        enable_ccache=config.file.build.ccache,
+        clean_chroot=config.file.build.clean_mode,
     )
 
 

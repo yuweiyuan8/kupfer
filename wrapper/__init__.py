@@ -15,7 +15,7 @@ wrapper_impls: dict[str, Wrapper] = {
 
 
 def get_wrapper_type(wrapper_type: str = None):
-    return wrapper_type or config.file['wrapper']['type']
+    return wrapper_type or config.file.wrapper.type
 
 
 def get_wrapper_impl(wrapper_type: str = None) -> Wrapper:
@@ -34,7 +34,7 @@ def is_wrapped(wrapper_type: str = None):
 
 def enforce_wrap(no_wrapper=False):
     wrapper_type = get_wrapper_type()
-    if wrapper_type != 'none' and not is_wrapped(wrapper_type) and not config.runtime['no_wrap'] and not no_wrapper:
+    if wrapper_type != 'none' and not is_wrapped(wrapper_type) and not config.runtime.no_wrap and not no_wrapper:
         logging.info(f'Wrapping in {wrapper_type}')
         wrap()
 

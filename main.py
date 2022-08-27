@@ -27,9 +27,9 @@ from ssh import cmd_ssh
 @nowrapper_option
 def cli(verbose: bool = False, config_file: str = None, wrapper_override: Optional[bool] = None, error_shell: bool = False):
     setup_logging(verbose)
-    config.runtime['verbose'] = verbose
-    config.runtime['no_wrap'] = wrapper_override is False
-    config.runtime['error_shell'] = error_shell
+    config.runtime.verbose = verbose
+    config.runtime.no_wrap = wrapper_override is False
+    config.runtime.error_shell = error_shell
     config.try_load_file(config_file)
     if wrapper_override:
         enforce_wrap()
@@ -39,11 +39,11 @@ def main():
     try:
         return cli(prog_name='kupferbootstrap')
     except Exception as ex:
-        if config.runtime['verbose']:
+        if config.runtime.verbose:
             logging.fatal(get_trace())
         else:
             logging.fatal(ex)
-        if config.runtime['error_shell']:
+        if config.runtime.error_shell:
             logging.info('Starting error shell. Type exit to quit.')
             subprocess.call('/bin/bash')
         exit(1)

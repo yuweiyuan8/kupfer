@@ -47,8 +47,8 @@ def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=F
 
 def init_pkgbuilds(interactive=False):
     pkgbuilds_dir = config.get_path('pkgbuilds')
-    repo_url = config.file['pkgbuilds']['git_repo']
-    branch = config.file['pkgbuilds']['git_branch']
+    repo_url = config.file.pkgbuilds.git_repo
+    branch = config.file.pkgbuilds.git_branch
     clone_pkbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
 
 
@@ -193,7 +193,7 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
     global config
     if _config:
         config = _config
-    setup_logging(verbose=config.runtime['verbose'], log_setup=False)  # different thread needs log setup.
+    setup_logging(verbose=config.runtime.verbose, log_setup=False)  # different thread needs log setup.
     logging.info(f"Parsing PKGBUILD for {relative_pkg_dir}")
     pkgbuilds_dir = config.get_path('pkgbuilds')
     pkgdir = os.path.join(pkgbuilds_dir, relative_pkg_dir)
