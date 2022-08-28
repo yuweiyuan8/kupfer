@@ -327,7 +327,7 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
         _pkgbuilds_paths[pkglist[0].path] = pkglist
         results += pkglist
 
-    logging.debug('Building package dictionary!')
+    logging.info('Building package dictionary')
     for package in results:
         for name in [package.name] + package.replaces:
             if name in packages:
