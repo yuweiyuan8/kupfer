@@ -47,15 +47,18 @@ def wrap_in_bash(cmd: Union[list[str], str], flatten_result=True) -> Union[str, 
     return res
 
 
-def generate_cmd_elevated(cmd: list[str], elevation_method: ElevationMethod):
+def generate_cmd_elevated(cmd: Union[list[str], str], elevation_method: ElevationMethod):
     "wraps `cmd` in the necessary commands to escalate, e.g. `['sudo', '--', cmd]`."
+    if isinstance(cmd, str):
+        cmd = wrap_in_bash(cmd, flatten_result=False)
+        assert not isinstance(cmd, str)  # typhints cmd as list[str]
     if elevation_method not in ELEVATION_METHODS:
         raise Exception(f"Unknown elevation method {elevation_method}")
     return ELEVATION_METHODS[elevation_method] + cmd
 
 
 def generate_cmd_su(
-    cmd: list[str],
+    cmd: Union[list[str], str],
     switch_user: str,
     elevation_method: Optional[ElevationMethod] = None,
     force_su: bool = False,
