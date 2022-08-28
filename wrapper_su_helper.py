@@ -1,12 +1,11 @@
 #!/bin/python3
 
 import click
-import os
 import pwd
 
 from logger import logging, setup_logging
 
-from exec.cmd import run_cmd
+from exec.cmd import run_cmd, flatten_shell_script
 from exec.file import chown
 
 
@@ -22,12 +21,9 @@ def kupferbootstrap_su(cmd: list[str], uid: int = 1000, username: str = 'kupfer'
     if uid != user.pw_uid:
         run_cmd(['usermod', '-u', str(uid), username]).check_returncode()  # type: ignore[union-attr]
         chown(home, username, recursive=False)
-    env = os.environ | {
-        'HOME': home,
-        'USER': username,
-    }
-    logging.debug(f'wrapper: running {cmd} as {repr(username)}')
-    result = run_cmd(cmd, attach_tty=True, switch_user=username, env=env)
+    logging.debug(f'wrapper_su_helper: running {cmd} as {repr(username)}')
+    su_cmd = ['sudo', 'su', '-P', username, '-c', flatten_shell_script(cmd, wrap_in_shell_quote=True, shell_quote_items=True)]
+    result = run_cmd(su_cmd, attach_tty=True)
     assert isinstance(result, int)
     exit(result)
 
