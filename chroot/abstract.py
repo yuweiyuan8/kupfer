@@ -273,6 +273,13 @@ class Chroot(AbstractChroot):
             fail_if_mounted=fail_if_mounted,
         )
 
+    def mount_chroots(self, fail_if_mounted: bool = False) -> str:
+        return self.mount(
+            absolute_source=config.get_path('chroots'),
+            relative_destination=CHROOT_PATHS['chroots'].lstrip('/'),
+            fail_if_mounted=fail_if_mounted,
+        )
+
     def write_makepkg_conf(self, target_arch: Arch, cross_chroot_relative: Optional[str], cross: bool = True) -> str:
         """
         Generate a `makepkg.conf` or `makepkg_cross_$arch.conf` file in /etc.
