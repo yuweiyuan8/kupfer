@@ -11,7 +11,7 @@ from urllib.request import urlopen
 from shutil import copyfileobj
 from typing import Iterable, Iterator, Optional
 
-from binfmt import register as binfmt_register
+from binfmt import register as binfmt_register, QEMU_ARCHES
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
 from exec.cmd import run_cmd, run_root_cmd
@@ -591,6 +591,7 @@ def build_packages(
     enable_ccache: bool = True,
     clean_chroot: bool = False,
 ):
+    check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     init_prebuilts(arch)
     build_levels = get_unbuilt_package_levels(
         packages,
@@ -636,6 +637,7 @@ def build_packages_by_paths(
     if isinstance(paths, str):
         paths = [paths]
 
+    check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     assert config.runtime.arch
     for _arch in set([arch, config.runtime.arch]):
         init_prebuilts(_arch)
@@ -667,7 +669,7 @@ def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = N
     assert native
     if arch == native:
         return
-    wrap_if_foreign_arch(arch)
+    check_programs_wrap([f'qemu-{QEMU_ARCHES[arch]}-static', 'pacman', 'makepkg'])
     # build qemu-user, binfmt, crossdirect
     build_packages_by_paths(
         CROSSDIRECT_PKGS,
@@ -725,7 +727,6 @@ def build(
     rebuild_dependants: bool = False,
     try_download: bool = False,
 ):
-    # TODO: arch = config.get_profile()...
     arch = arch or get_profile_device(hint_or_set_arch=True).arch
 
     if arch not in ARCHES:
