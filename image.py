@@ -18,7 +18,7 @@ from exec.file import root_write_file, root_makedir, makedir
 from packages import build_enable_qemu_binfmt, build_packages_by_paths
 from packages.device import get_profile_device
 from ssh import copy_ssh_keys
-from wrapper import wrap_if_foreign_arch
+from wrapper import check_programs_wrap, wrap_if_foreign_arch
 
 # image files need to be slightly smaller than partitions to fit
 IMG_FILE_ROOT_DEFAULT_SIZE = "1800M"
@@ -389,7 +389,7 @@ def cmd_build(profile_name: str = None,
     Unless overriden, required packages will be built or preferably downloaded from HTTPS repos.
     """
     arch = get_profile_device(profile_name).arch
-    wrap_if_foreign_arch(arch)
+    check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     profile: Profile = config.get_profile(profile_name)
     device, flavour = get_device_and_flavour(profile_name)
     size_extra_mb: int = int(profile["size_extra_mb"])
