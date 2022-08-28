@@ -314,19 +314,21 @@ class Chroot(AbstractChroot):
         user: str = 'kupfer',
         password: Optional[str] = None,
         groups: list[str] = ['network', 'video', 'audio', 'optical', 'storage', 'input', 'scanner', 'games', 'lp', 'rfkill', 'wheel'],
+        primary_group: Optional[str] = 'users',
         uid: Optional[int] = None,
         non_unique: bool = False,
     ):
         user = user or 'kupfer'
         uid_param = f'-u {uid}' if uid is not None else ''
         unique_param = '--non-unique' if non_unique else ''
+        pgroup_param = f'-g {primary_group}' if primary_group else ''
         install_script = f'''
                 set -e
                 if ! id -u "{user}" >/dev/null 2>&1; then
-                  useradd -m {unique_param} {uid_param} {user}
+                  useradd -m {unique_param} {uid_param} {pgroup_param} {user}
                 fi
-                usermod -a -G {",".join(groups)} {unique_param} {uid_param} {user}
-                chown {user}:{user} /home/{user} -R
+                usermod -a -G {",".join(groups)} {unique_param} {uid_param} {pgroup_param} {user}
+                chown {user}:{primary_group if primary_group else user} /home/{user} -R
             '''
         if password:
             install_script += f'echo "{user}:{password}" | chpasswd'
