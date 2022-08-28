@@ -91,7 +91,10 @@ def filter_packages(
         raise Exception("Can't search for packages: no query given")
     repo = repo or discover_pkgbuilds()
     if 'all' in paths:
-        return [pkg for pkg in repo.values() if set([arch, 'any']).intersection(pkg.arches)]
+        all_pkgs = list(repo.values())
+        if arch:
+            all_pkgs = [pkg for pkg in all_pkgs if set([arch, 'any']).intersection(pkg.arches)]
+        return all_pkgs
     result = []
     for pkg in repo.values():
         comparison = set()
