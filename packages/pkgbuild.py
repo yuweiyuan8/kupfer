@@ -300,7 +300,11 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
     init_pkgbuilds(interactive=False)
     for repo in REPOSITORIES:
         for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
-            paths.append(os.path.join(repo, dir))
+            p = os.path.join(repo, dir)
+            if not os.path.exists(os.path.join(pkgbuilds_dir, p, 'PKGBUILD')):
+                logging.warning(f"{p} doesn't include a PKGBUILD file; skipping")
+                continue
+            paths.append(p)
 
     logging.info("Parsing PKGBUILDs")
 
