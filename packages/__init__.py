@@ -80,6 +80,7 @@ def init_prebuilts(arch: Arch, dir: str = None):
 def filter_packages(
     paths: Iterable[str],
     repo: Optional[dict[str, Pkgbuild]] = None,
+    arch: Optional[Arch] = None,
     allow_empty_results=True,
     use_paths=True,
     use_names=True,
@@ -96,7 +97,12 @@ def filter_packages(
             comparison.add(pkg.path)
         if use_names:
             comparison.add(pkg.name)
-        if comparison.intersection(paths):
+        matches = list(comparison.intersection(paths))
+        if matches:
+            assert pkg.arches
+            if arch and not set([arch, 'any']).intersection(pkg.arches):
+                logging.warn(f"Pkg {pkg.name} matches query {matches[0]} but isn't available for architecture {arch}: {pkg.arches}")
+                continue
             result += [pkg]
 
     if not allow_empty_results and not result:
@@ -647,7 +653,7 @@ def build_packages_by_paths(
     assert config.runtime.arch
     for _arch in set([arch, config.runtime.arch]):
         init_prebuilts(_arch)
-    packages = filter_packages(paths, repo=repo, allow_empty_results=False)
+    packages = filter_packages(paths, arch=arch, repo=repo, allow_empty_results=False)
     return build_packages(
         packages,
         arch,
