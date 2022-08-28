@@ -85,11 +85,13 @@ def filter_packages(
     use_paths=True,
     use_names=True,
 ) -> Iterable[Pkgbuild]:
+    if not (use_names or use_paths):
+        raise Exception('Error: filter_packages instructed to match neither by names nor paths; impossible!')
     if not allow_empty_results and not paths:
         raise Exception("Can't search for packages: no query given")
     repo = repo or discover_pkgbuilds()
     if 'all' in paths:
-        return list(repo.values())
+        return [pkg for pkg in repo.values() if set([arch, 'any']).intersection(pkg.arches)]
     result = []
     for pkg in repo.values():
         comparison = set()
@@ -268,7 +270,7 @@ def strip_compression_extension(filename: str):
     for ext in ['zst', 'xz', 'gz', 'bz2']:
         if filename.endswith(f'.pkg.tar.{ext}'):
             return filename[:-(len(ext) + 1)]
-    logging.warning(f"file {filename} matches no known package extension")
+    logging.debug(f"file {filename} matches no known package extension")
     return filename
 
 
@@ -403,9 +405,8 @@ def setup_build_chroot(
     chroot.mount_pkgbuilds()
     if extra_packages:
         chroot.try_install_packages(extra_packages, allow_fail=False)
-    if not os.path.exists(chroot.get_path('/home/kupfer')):
-        assert config.runtime.uid is not None
-        chroot.create_user('kupfer', password='12345678', uid=config.runtime.uid, non_unique=True)
+    assert config.runtime.uid is not None
+    chroot.create_user('kupfer', password='12345678', uid=config.runtime.uid, non_unique=True)
     if not os.path.exists(chroot.get_path('/etc/sudoers.d/kupfer_nopw')):
         chroot.add_sudo_config('kupfer_nopw', 'kupfer', password_required=False)
 
@@ -529,15 +530,19 @@ def build_package(
 def get_dependants(
     repo: dict[str, Pkgbuild],
     packages: Iterable[Pkgbuild],
+    arch: Arch,
     recursive: bool = True,
 ) -> set[Pkgbuild]:
     names = set([pkg.name for pkg in packages])
     to_add = set[Pkgbuild]()
     for pkg in repo.values():
         if set.intersection(names, set(pkg.depends)):
+            if not set([arch, 'any']).intersection(pkg.arches):
+                logging.warn(f'get_dependants: skipping matched pkg {pkg.name} due to wrong arch: {pkg.arches}')
+                continue
             to_add.add(pkg)
     if recursive and to_add:
-        to_add.update(get_dependants(repo, to_add))
+        to_add.update(get_dependants(repo, to_add, arch=arch))
     return to_add
 
 
@@ -552,7 +557,7 @@ def get_unbuilt_package_levels(
     repo = repo or discover_pkgbuilds()
     dependants = set[Pkgbuild]()
     if rebuild_dependants:
-        dependants = get_dependants(repo, packages)
+        dependants = get_dependants(repo, packages, arch=arch)
     package_levels = generate_dependency_chain(repo, set(packages).union(dependants))
     build_names = set[str]()
     build_levels = list[set[Pkgbuild]]()
