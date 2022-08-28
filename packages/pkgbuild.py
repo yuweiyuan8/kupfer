@@ -128,6 +128,13 @@ class Pkgbuild(PackageInfo):
     def refresh_sources(self):
         raise NotImplementedError()
 
+    def get_filename(self, arch: Arch):
+        if not self.version:
+            self.update_version()
+        if self.arches[0] == 'any':
+            arch = 'any'
+        return f'{self.name}-{self.version}-{arch}.pkg.tar.zst'
+
 
 class Pkgbase(Pkgbuild):
     subpackages: list[SubPkgbuild]
