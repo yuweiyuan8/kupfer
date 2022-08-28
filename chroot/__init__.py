@@ -50,11 +50,14 @@ def cmd_chroot(type: str = 'build', arch: str = None, enable_crossdirect=True):
                 build_chroot.initialize()
             build_chroot.initialized = True
             build_chroot.mount_pkgbuilds()
-            if config.file.build.crossdirect and enable_crossdirect:
+            build_chroot.mount_chroots()
+            assert arch and config.runtime.arch
+            if config.file.build.crossdirect and enable_crossdirect and arch != config.runtime.arch:
                 build_chroot.mount_crossdirect()
         else:
             raise Exception('Really weird bug')
 
+    chroot.mount_packages()
     chroot.activate()
     logging.debug(f'Starting shell in {chroot.name}:')
     chroot.run_cmd('bash', attach_tty=True)
