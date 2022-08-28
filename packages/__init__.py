@@ -9,7 +9,7 @@ from glob import glob
 from urllib.error import HTTPError
 from urllib.request import urlopen
 from shutil import copyfileobj
-from typing import Iterable, Iterator, Any, Optional
+from typing import Iterable, Iterator, Optional
 
 from binfmt import register as binfmt_register
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
@@ -337,45 +337,21 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
 
 
 def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: bool = False) -> bool:
-    enforce_wrap()
-    assert config.runtime.arch
-    native_chroot = setup_build_chroot(config.runtime.arch)
-    config_path = '/' + native_chroot.write_makepkg_conf(
-        target_arch=arch,
-        cross_chroot_relative=os.path.join('chroot', arch),
-        cross=True,
-    )
-
-    cmd = ['cd', os.path.join(CHROOT_PATHS['pkgbuilds'], package.path), '&&'] + MAKEPKG_CMD + [
-        '--config',
-        config_path,
-        '--nobuild',
-        '--noprepare',
-        '--skippgpcheck',
-        '--packagelist',
-    ]
-    result: Any = native_chroot.run_cmd(cmd, capture_output=True, switch_user='kupfer')
-    if result.returncode != 0:
-        raise Exception(f'Failed to get package list for {package.path}:' + '\n' + result.stdout.decode() + '\n' + result.stderr.decode())
-
     missing = True
-    for line in result.stdout.decode('utf-8').split('\n'):
-        if not line:
-            continue
-        basename = os.path.basename(line)
-        file = os.path.join(config.get_package_dir(arch), package.repo, basename)
-        filename_stripped = strip_compression_extension(file)
-        logging.debug(f'Checking if {file} is built')
+    filename = package.get_filename(arch)
+    filename_stripped = strip_compression_extension(filename)
+    logging.debug(f'Checking if {filename_stripped} is built')
+    for ext in ['xz', 'zst']:
+        file = os.path.join(config.get_package_dir(arch), package.repo, f'{filename_stripped}.{ext}')
         if not filename_stripped.endswith('.pkg.tar'):
-            logging.debug(f'skipping unknown file extension {basename}')
-            continue
+            raise Exception(f'stripped filename has unknown extension. {filename}')
         if os.path.exists(file) or (try_download and try_download_package(file, package, arch)):
             missing = False
             add_file_to_repo(file, repo_name=package.repo, arch=arch)
         # copy arch=(any) packages to all arches
         if filename_stripped.endswith('any.pkg.tar'):
             logging.debug("any-arch pkg detected")
-            target_repo_file = os.path.join(config.get_package_dir(arch), package.repo, basename)
+            target_repo_file = os.path.join(config.get_package_dir(arch), package.repo, filename)
             if os.path.exists(target_repo_file):
                 missing = False
             else:
@@ -383,7 +359,7 @@ def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: boo
                 for repo_arch in ARCHES:
                     if repo_arch == arch:
                         continue  # we already checked that
-                    other_repo_path = os.path.join(config.get_package_dir(repo_arch), package.repo, basename)
+                    other_repo_path = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
                     if os.path.exists(other_repo_path):
                         missing = False
                         logging.info(f"package {file} found in {repo_arch} repos, copying to {arch}")
@@ -396,12 +372,14 @@ def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: boo
                 for repo_arch in ARCHES:
                     if repo_arch == arch:
                         continue  # we already have that
-                    copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, basename)
+                    copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
                     if not os.path.exists(copy_target):
                         logging.info(f"copying to {copy_target}")
                         shutil.copyfile(target_repo_file, copy_target)
                         add_file_to_repo(copy_target, package.repo, repo_arch)
-    return not missing
+        if not missing:
+            return True
+    return False
 
 
 def setup_build_chroot(
