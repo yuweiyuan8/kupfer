@@ -22,7 +22,7 @@ from ssh import run_ssh_command, scp_put_files
 from wrapper import enforce_wrap, check_programs_wrap, wrap_if_foreign_arch
 from utils import git
 
-from .pkgbuild import discover_pkgbuilds, init_pkgbuilds, Pkgbuild
+from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, init_pkgbuilds, Pkgbuild
 from .device import get_profile_device
 
 pacman_cmd = [
@@ -75,44 +75,6 @@ def init_prebuilts(arch: Arch, dir: str = None):
                     assert isinstance(result, subprocess.CompletedProcess)
                     if result.returncode != 0:
                         raise Exception(f'Failed to create local repo {repo}')
-
-
-def filter_packages(
-    paths: Iterable[str],
-    repo: Optional[dict[str, Pkgbuild]] = None,
-    arch: Optional[Arch] = None,
-    allow_empty_results=True,
-    use_paths=True,
-    use_names=True,
-) -> Iterable[Pkgbuild]:
-    if not (use_names or use_paths):
-        raise Exception('Error: filter_packages instructed to match neither by names nor paths; impossible!')
-    if not allow_empty_results and not paths:
-        raise Exception("Can't search for packages: no query given")
-    repo = repo or discover_pkgbuilds()
-    if 'all' in paths:
-        all_pkgs = list(repo.values())
-        if arch:
-            all_pkgs = [pkg for pkg in all_pkgs if set([arch, 'any']).intersection(pkg.arches)]
-        return all_pkgs
-    result = []
-    for pkg in repo.values():
-        comparison = set()
-        if use_paths:
-            comparison.add(pkg.path)
-        if use_names:
-            comparison.add(pkg.name)
-        matches = list(comparison.intersection(paths))
-        if matches:
-            assert pkg.arches
-            if arch and not set([arch, 'any']).intersection(pkg.arches):
-                logging.warn(f"Pkg {pkg.name} matches query {matches[0]} but isn't available for architecture {arch}: {pkg.arches}")
-                continue
-            result += [pkg]
-
-    if not allow_empty_results and not result:
-        raise Exception('No packages matched by paths: ' + ', '.join([f'"{p}"' for p in paths]))
-    return result
 
 
 def generate_dependency_chain(package_repo: dict[str, Pkgbuild], to_build: Iterable[Pkgbuild]) -> list[set[Pkgbuild]]:
@@ -649,7 +611,7 @@ def build_packages_by_paths(
     assert config.runtime.arch
     for _arch in set([arch, config.runtime.arch]):
         init_prebuilts(_arch)
-    packages = filter_packages(paths, arch=arch, repo=repo, allow_empty_results=False)
+    packages = filter_pkgbuilds(paths, arch=arch, repo=repo, allow_empty_results=False)
     return build_packages(
         packages,
         arch,
@@ -858,7 +820,7 @@ def cmd_check(paths):
         return False
 
     paths = list(paths)
-    packages = filter_packages(paths, allow_empty_results=False)
+    packages = filter_pkgbuilds(paths, allow_empty_results=False)
 
     for package in packages:
         name = package.name
