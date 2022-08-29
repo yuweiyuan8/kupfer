@@ -30,7 +30,7 @@ class DataClass(Munch):
         self.update(d | kwargs, validate=validate)
 
     @classmethod
-    def transform(cls, values: Mapping[str, Any], validate: bool = True) -> Any:
+    def transform(cls, values: Mapping[str, Any], validate: bool = True, allow_extra: bool = False) -> Any:
         results = {}
         values = dict(values)
         for key in list(values.keys()):
@@ -48,7 +48,7 @@ class DataClass(Munch):
                 if validate:
                     if not isinstance(value, _classes):
                         raise Exception(f'key "{key}" has value of wrong type {_classes}: {value}')
-            elif validate:
+            elif validate and not allow_extra:
                 raise Exception(f'Unknown key "{key}"')
             else:
                 if isinstance(value, dict) and not isinstance(value, Munch):
@@ -150,12 +150,14 @@ class ProfilesSection(DataClass):
     default: SparseProfile
 
     @classmethod
-    def transform(cls, values: Mapping[str, Any], validate: bool = True):
+    def transform(cls, values: Mapping[str, Any], validate: bool = True, allow_extra: bool = True):
         results = {}
         for k, v in values.items():
             if k == 'current':
                 results[k] = v
                 continue
+            if not allow_extra and k != 'default':
+                raise Exception(f'Unknown key {k} in profiles section (Hint: extra_keys not allowed for some reason)')
             if not isinstance(v, dict):
                 raise Exception(f'profile {v} is not a dict!')
             results[k] = SparseProfile.fromDict(v, validate=True)
@@ -178,7 +180,13 @@ class Config(DataClass):
     profiles: ProfilesSection
 
     @classmethod
-    def fromDict(cls, values: Mapping[str, Any], validate: bool = True, allow_incomplete: bool = False):
+    def fromDict(
+        cls,
+        values: Mapping[str, Any],
+        validate: bool = True,
+        allow_extra: bool = False,
+        allow_incomplete: bool = False,
+    ):
         values = dict(values)  # copy for later modification
         _vals = {}
         for name, _class in cls._type_hints.items():
