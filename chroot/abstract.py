@@ -346,6 +346,18 @@ class Chroot(AbstractChroot):
         if result.returncode != 0:
             raise Exception(f'Failed to setup user {user} in self.name')
 
+    def get_uid(self, user: Union[str, int]) -> int:
+        if isinstance(user, int):
+            return user
+        if user == 'root':
+            return 0
+        res = self.run_cmd(['id', '-u', user], capture_output=True)
+        assert isinstance(res, subprocess.CompletedProcess)
+        if res.returncode or not res.stdout:
+            raise Exception(f"chroot {self.name}: Couldnt detect uid for user {user}: {repr(res.stdout)}")
+        uid = res.stdout.decode()
+        return int(uid)
+
     def add_sudo_config(self, config_name: str = 'wheel', privilegee: str = '%wheel', password_required: bool = True):
         if '.' in config_name:
             raise Exception(f"won't create sudoers.d file {config_name} since it will be ignored by sudo because it contains a dot!")
