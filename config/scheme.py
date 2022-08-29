@@ -141,6 +141,7 @@ class PathsSection(DataClass):
     pkgbuilds: str
     jumpdrive: str
     images: str
+    ccache: str
 
 
 class ProfilesSection(DataClass):
