@@ -135,7 +135,8 @@ class BuildChroot(Chroot):
     def mount_ccache(self, user: str = 'kupfer', fail_if_mounted: bool = False):
         mount_source = os.path.join(config.file.paths.ccache, self.arch)
         mount_dest = os.path.join(f'/home/{user}' if user != 'root' else '/root', '.ccache')
-        makedir(mount_source)
+        uid = self.get_uid(user)
+        makedir(mount_source, user=uid)
         return self.mount(
             absolute_source=mount_source,
             relative_destination=mount_dest,
@@ -144,11 +145,12 @@ class BuildChroot(Chroot):
 
     def mount_rust(self, user: str = 'kupfer', fail_if_mounted: bool = False) -> list[str]:
         results = []
+        uid = self.get_uid(user)
         mount_source_base = config.file.paths.rust  # apparently arch-agnostic
         for rust_dir in ['cargo', 'rustup']:
             mount_source = os.path.join(mount_source_base, rust_dir)
             mount_dest = os.path.join(f'/home/{user}' if user != 'root' else '/root', f'.{rust_dir}')
-            makedir(mount_source)
+            makedir(mount_source, user=uid)
             results.append(self.mount(
                 absolute_source=mount_source,
                 relative_destination=mount_dest,
