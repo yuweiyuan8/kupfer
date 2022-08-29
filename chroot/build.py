@@ -142,6 +142,20 @@ class BuildChroot(Chroot):
             fail_if_mounted=fail_if_mounted,
         )
 
+    def mount_rust(self, user: str = 'kupfer', fail_if_mounted: bool = False) -> list[str]:
+        results = []
+        mount_source_base = config.file.paths.rust  # apparently arch-agnostic
+        for rust_dir in ['cargo', 'rustup']:
+            mount_source = os.path.join(mount_source_base, rust_dir)
+            mount_dest = os.path.join(f'/home/{user}' if user != 'root' else '/root', f'.{rust_dir}')
+            makedir(mount_source)
+            results.append(self.mount(
+                absolute_source=mount_source,
+                relative_destination=mount_dest,
+                fail_if_mounted=fail_if_mounted,
+            ))
+        return results
+
 
 def get_build_chroot(arch: Arch, add_kupfer_repos: bool = True, **kwargs) -> BuildChroot:
     name = build_chroot_name(arch)

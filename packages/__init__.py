@@ -461,6 +461,8 @@ def build_package(
     repo_dir = repo_dir if repo_dir else config.get_path('pkgbuilds')
     foreign_arch = config.runtime.arch != arch
     deps = (list(set(package.depends) - set(package.names())))
+    needs_rust = 'rust' in deps
+    build_root: BuildChroot
     target_chroot = setup_build_chroot(
         arch=arch,
         extra_packages=deps,
@@ -517,6 +519,8 @@ def build_package(
 
     if enable_ccache:
         build_root.mount_ccache(user=build_user)
+    if needs_rust:
+        build_root.mount_rust(user=build_user)
     setup_git_insecure_paths(build_root)
     makepkg_conf_absolute = os.path.join('/', makepkg_conf_path)
     setup_sources(package, build_root, makepkg_conf_path=makepkg_conf_absolute)

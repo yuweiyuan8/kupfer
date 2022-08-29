@@ -142,6 +142,7 @@ class PathsSection(DataClass):
     jumpdrive: str
     images: str
     ccache: str
+    rust: str
 
 
 class ProfilesSection(DataClass):
