@@ -12,12 +12,6 @@ RUN pacman-key --init && \
 
 RUN sed -i "s/EUID == 0/EUID == -1/g" $(which makepkg)
 
-RUN cd /tmp && \
-    git clone https://aur.archlinux.org/aarch64-linux-gnu-pkg-config.git && \
-    cd aarch64-linux-gnu-pkg-config && \
-    makepkg -s --skippgpcheck && \
-    pacman -U --noconfirm *.pkg*
-
 RUN yes | pacman -Scc
 
 RUN sed -i "s/SigLevel.*/SigLevel = Never/g" /etc/pacman.conf
