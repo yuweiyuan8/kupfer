@@ -42,6 +42,7 @@ CONFIG_DEFAULTS_DICT = {
         'pkgbuilds': os.path.join('%cache_dir%', 'pkgbuilds'),
         'jumpdrive': os.path.join('%cache_dir%', 'jumpdrive'),
         'images': os.path.join('%cache_dir%', 'images'),
+        'ccache': os.path.join('%cache_dir%', 'ccache'),
     },
     'profiles': {
         'current': 'default',

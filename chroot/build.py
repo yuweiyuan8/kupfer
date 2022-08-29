@@ -132,6 +132,16 @@ class BuildChroot(Chroot):
             fail_if_mounted=fail_if_mounted,
         )
 
+    def mount_ccache(self, user: str = 'kupfer', fail_if_mounted: bool = False):
+        mount_source = os.path.join(config.file.paths.ccache, self.arch)
+        mount_dest = os.path.join(f'/home/{user}' if user != 'root' else '/root', '.ccache')
+        makedir(mount_source)
+        return self.mount(
+            absolute_source=mount_source,
+            relative_destination=mount_dest,
+            fail_if_mounted=fail_if_mounted,
+        )
+
 
 def get_build_chroot(arch: Arch, add_kupfer_repos: bool = True, **kwargs) -> BuildChroot:
     name = build_chroot_name(arch)

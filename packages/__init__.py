@@ -454,6 +454,7 @@ def build_package(
     enable_crossdirect: bool = True,
     enable_ccache: bool = True,
     clean_chroot: bool = False,
+    build_user: str = 'kupfer',
 ):
     makepkg_compile_opts = ['--holdver']
     makepkg_conf_path = 'etc/makepkg.conf'
@@ -482,6 +483,7 @@ def build_package(
         env = deepcopy(get_makepkg_env(arch))
         if enable_ccache:
             env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
+            native_chroot.mount_ccache(user=build_user)
         logging.info('Setting up dependencies for cross-compilation')
         # include crossdirect for ccache symlinks and qemu-user
         results = native_chroot.try_install_packages(package.depends + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
@@ -513,6 +515,8 @@ def build_package(
         if failed_deps:
             raise Exception(f'Dependencies failed to install: {failed_deps}')
 
+    if enable_ccache:
+        build_root.mount_ccache(user=build_user)
     setup_git_insecure_paths(build_root)
     makepkg_conf_absolute = os.path.join('/', makepkg_conf_path)
     setup_sources(package, build_root, makepkg_conf_path=makepkg_conf_absolute)
@@ -523,7 +527,7 @@ def build_package(
         build_cmd,
         inner_env=env,
         cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path),
-        switch_user='kupfer',
+        switch_user=build_user,
     )
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
