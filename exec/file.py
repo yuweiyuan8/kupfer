@@ -144,7 +144,7 @@ def remove_file(path: str, recursive=False):
             raise Exception(f"Unable to remove {path}: cmd returned {rc}")
 
 
-def makedir(path, user: Optional[str] = None, group: Optional[str] = None, parents: bool = True):
+def makedir(path, user: Optional[Union[str, int]] = None, group: Optional[Union[str, int]] = None, parents: bool = True):
     if not root_check_exists(path):
         try:
             if parents:
