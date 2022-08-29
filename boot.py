@@ -6,7 +6,8 @@ from config import config
 from constants import BOOT_STRATEGIES, FLASH_PARTS, FASTBOOT, JUMPDRIVE, JUMPDRIVE_VERSION
 from exec.file import makedir
 from fastboot import fastboot_boot, fastboot_erase_dtbo
-from image import get_device_and_flavour, losetup_rootfs_image, get_image_path, dump_aboot, dump_lk2nd
+from image import get_flavour, get_device_name, losetup_rootfs_image, get_image_path, dump_aboot, dump_lk2nd
+from packages.device import get_profile_device
 from wrapper import enforce_wrap
 
 LK2ND = FLASH_PARTS['LK2ND']
@@ -20,7 +21,8 @@ TYPES = [LK2ND, JUMPDRIVE, ABOOT]
 def cmd_boot(type):
     """Boot JumpDrive or the Kupfer aboot image. Erases Android DTBO in the process."""
     enforce_wrap()
-    device, flavour = get_device_and_flavour()
+    device = get_profile_device()
+    flavour = get_flavour()
     # TODO: parse arch and sector size
     sector_size = 4096
     image_path = get_image_path(device, flavour)
@@ -28,7 +30,7 @@ def cmd_boot(type):
 
     if strategy == FASTBOOT:
         if type == JUMPDRIVE:
-            file = f'boot-{device}.img'
+            file = f'boot-{get_device_name(device)}.img'
             path = os.path.join(config.get_path('jumpdrive'), file)
             makedir(os.path.dirname(path))
             if not os.path.exists(path):

@@ -6,7 +6,8 @@ from constants import FLASH_PARTS, LOCATIONS
 from exec.cmd import run_root_cmd
 from exec.file import get_temp_dir
 from fastboot import fastboot_flash
-from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, losetup_destroy, dump_aboot, dump_lk2nd, dump_qhypstub, get_device_and_flavour, get_image_name, get_image_path
+from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, losetup_destroy, dump_aboot, dump_lk2nd, dump_qhypstub, get_flavour, get_image_name, get_image_path
+from packages.device import get_profile_device
 from wrapper import enforce_wrap
 
 ABOOT = FLASH_PARTS['ABOOT']
@@ -21,7 +22,8 @@ ROOTFS = FLASH_PARTS['ROOTFS']
 def cmd_flash(what: str, location: str):
     """Flash a partition onto a device. `location` takes either a path to a block device or one of emmc, sdcard"""
     enforce_wrap()
-    device, flavour = get_device_and_flavour()
+    device = get_profile_device()
+    flavour = get_flavour()
     device_image_name = get_image_name(device, flavour)
     device_image_path = get_image_path(device, flavour)
 
