@@ -23,14 +23,6 @@ BOOT_STRATEGIES: dict[str, str] = {
     'bq-paella': FASTBOOT,
 }
 
-DEVICES: dict[str, list[str]] = {
-    'oneplus-enchilada': ['device-sdm845-oneplus-enchilada'],
-    'oneplus-fajita': ['device-sdm845-oneplus-fajita'],
-    'xiaomi-beryllium-ebbg': ['device-sdm845-xiaomi-beryllium-ebbg'],
-    'xiaomi-beryllium-tianma': ['device-sdm845-xiaomi-beryllium-tianma'],
-    'bq-paella': ['device-msm8916-bq-paella'],
-}
-
 BASE_PACKAGES: list[str] = [
     'base',
     'base-kupfer',
