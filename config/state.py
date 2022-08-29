@@ -43,6 +43,7 @@ CONFIG_DEFAULTS_DICT = {
         'jumpdrive': os.path.join('%cache_dir%', 'jumpdrive'),
         'images': os.path.join('%cache_dir%', 'images'),
         'ccache': os.path.join('%cache_dir%', 'ccache'),
+        'rust': os.path.join('%cache_dir%', 'rust'),
     },
     'profiles': {
         'current': 'default',
