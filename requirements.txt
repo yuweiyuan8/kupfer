@@ -5,3 +5,4 @@ toml
 typing_extensions
 coloredlogs
 munch
+setuptools # required by munch
