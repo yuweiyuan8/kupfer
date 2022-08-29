@@ -7,7 +7,7 @@ import os
 import subprocess
 
 from joblib import Parallel, delayed
-from typing import Optional
+from typing import Iterable, Optional
 
 from config import config, ConfigStateHolder
 from constants import REPOSITORIES
@@ -358,3 +358,41 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
     _pkgbuilds_cache.update(packages)
     _pkgbuilds_scanned = True
     return packages
+
+
+def filter_pkgbuilds(
+    paths: Iterable[str],
+    repo: Optional[dict[str, Pkgbuild]] = None,
+    arch: Optional[Arch] = None,
+    allow_empty_results=True,
+    use_paths=True,
+    use_names=True,
+) -> Iterable[Pkgbuild]:
+    if not (use_names or use_paths):
+        raise Exception('Error: filter_packages instructed to match neither by names nor paths; impossible!')
+    if not allow_empty_results and not paths:
+        raise Exception("Can't search for packages: no query given")
+    repo = repo or discover_pkgbuilds()
+    if 'all' in paths:
+        all_pkgs = list(repo.values())
+        if arch:
+            all_pkgs = [pkg for pkg in all_pkgs if set([arch, 'any']).intersection(pkg.arches)]
+        return all_pkgs
+    result = []
+    for pkg in repo.values():
+        comparison = set()
+        if use_paths:
+            comparison.add(pkg.path)
+        if use_names:
+            comparison.add(pkg.name)
+        matches = list(comparison.intersection(paths))
+        if matches:
+            assert pkg.arches
+            if arch and not set([arch, 'any']).intersection(pkg.arches):
+                logging.warn(f"Pkg {pkg.name} matches query {matches[0]} but isn't available for architecture {arch}: {pkg.arches}")
+                continue
+            result += [pkg]
+
+    if not allow_empty_results and not result:
+        raise Exception('No packages matched by paths: ' + ', '.join([f'"{p}"' for p in paths]))
+    return result
