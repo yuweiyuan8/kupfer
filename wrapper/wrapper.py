@@ -9,6 +9,11 @@ from config import config
 from config.state import dump_file as dump_config_file
 from constants import CHROOT_PATHS
 
+WRAPPER_PATHS = CHROOT_PATHS | {
+    'ccache': '/ccache',
+    'rust': '/rust',
+}
+
 
 class Wrapper(Protocol):
     """Wrappers wrap kupferbootstrap in some form of isolation from the host OS, i.e. docker or chroots"""
@@ -63,7 +68,7 @@ class BaseWrapper(Wrapper):
     def generate_wrapper_config(
         self,
         target_path: str = '/tmp/kupferbootstrap',
-        paths: dict[str, str] = CHROOT_PATHS,
+        paths: dict[str, str] = WRAPPER_PATHS,
         config_overrides: dict[str, dict] = {},
     ) -> str:
         wrapped_config = f'{target_path.rstrip("/")}/{self.identifier}_wrapped.toml'

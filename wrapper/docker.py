@@ -5,10 +5,9 @@ import subprocess
 import sys
 
 from config import config
-from constants import CHROOT_PATHS
-from .wrapper import BaseWrapper
+from .wrapper import BaseWrapper, WRAPPER_PATHS
 
-DOCKER_PATHS = CHROOT_PATHS.copy()
+DOCKER_PATHS = WRAPPER_PATHS.copy()
 
 
 def docker_volumes_args(volume_mappings: dict[str, str]) -> list[str]:
