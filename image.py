@@ -7,16 +7,16 @@ import click
 import logging
 from signal import pause
 from subprocess import CompletedProcess
-from typing import Optional
+from typing import Optional, Union
 
 from chroot.device import DeviceChroot, get_device_chroot
-from constants import Arch, BASE_PACKAGES, DEVICES, FLAVOURS
+from constants import Arch, BASE_PACKAGES, FLAVOURS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
 from packages import build_enable_qemu_binfmt, build_packages_by_paths
-from packages.device import get_profile_device
+from packages.device import Device, get_profile_device
 from ssh import copy_ssh_keys
 from wrapper import check_programs_wrap, wrap_if_foreign_arch
 
@@ -131,23 +131,25 @@ def losetup_destroy(loop_device):
     )
 
 
-def get_device_and_flavour(profile_name: Optional[str] = None) -> tuple[str, str]:
+def get_flavour(profile_name: Optional[str] = None) -> str:
     config.enforce_config_loaded()
     profile = config.get_profile(profile_name)
-    if not profile['device']:
-        raise Exception("Please set the device using 'kupferbootstrap config init ...'")
 
     if not profile['flavour']:
         raise Exception("Please set the flavour using 'kupferbootstrap config init ...'")
 
-    return (profile['device'], profile['flavour'])
+    return profile['flavour']
 
 
-def get_image_name(device, flavour, img_type='full') -> str:
-    return f'{device}-{flavour}-{img_type}.img'
+def get_device_name(device: Union[str, Device]) -> str:
+    return device.name if isinstance(device, Device) else device
 
 
-def get_image_path(device, flavour, img_type='full') -> str:
+def get_image_name(device: Union[str, Device], flavour, img_type='full') -> str:
+    return f'{get_device_name(device)}-{flavour}-{img_type}.img'
+
+
+def get_image_path(device: Union[str, Device], flavour, img_type='full') -> str:
     return os.path.join(config.get_path('images'), get_image_name(device, flavour, img_type))
 
 
@@ -299,7 +301,7 @@ def create_boot_fs(device: str, blocksize: int):
 def install_rootfs(
     rootfs_device: str,
     bootfs_device: str,
-    device: str,
+    device: Union[str, Device],
     flavour: str,
     arch: Arch,
     packages: list[str],
@@ -308,7 +310,7 @@ def install_rootfs(
 ):
     user = profile['username'] or 'kupfer'
     post_cmds = FLAVOURS[flavour].get('post_cmds', [])
-    chroot = get_device_chroot(device=device, flavour=flavour, arch=arch, packages=packages, use_local_repos=use_local_repos)
+    chroot = get_device_chroot(device=get_device_name(device), flavour=flavour, arch=arch, packages=packages, use_local_repos=use_local_repos)
 
     mount_chroot(rootfs_device, bootfs_device, chroot)
 
@@ -388,16 +390,17 @@ def cmd_build(profile_name: str = None,
 
     Unless overriden, required packages will be built or preferably downloaded from HTTPS repos.
     """
-    arch = get_profile_device(profile_name).arch
+    device = get_profile_device(profile_name)
+    arch = device.arch
     check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     profile: Profile = config.get_profile(profile_name)
-    device, flavour = get_device_and_flavour(profile_name)
+    flavour = get_flavour(profile_name)
     size_extra_mb: int = int(profile["size_extra_mb"])
 
     sector_size = 4096
     rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
 
-    packages = BASE_PACKAGES + DEVICES[device] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
+    packages = BASE_PACKAGES + [device.package.name] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
 
     if arch != config.runtime.arch:
         build_enable_qemu_binfmt(arch)
@@ -459,9 +462,10 @@ def cmd_build(profile_name: str = None,
 @click.argument('profile', required=False)
 def cmd_inspect(profile: str = None, shell: bool = False):
     """Open a shell in a device image"""
-    arch = get_profile_device(profile).arch
+    device = get_profile_device(profile)
+    arch = device.arch
     wrap_if_foreign_arch(arch)
-    device, flavour = get_device_and_flavour(profile)
+    flavour = get_flavour(profile)
     # TODO: PARSE DEVICE SECTOR SIZE
     sector_size = 4096
     chroot = get_device_chroot(device, flavour, arch)
