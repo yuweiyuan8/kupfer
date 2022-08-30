@@ -25,66 +25,66 @@ class DockerWrapper(BaseWrapper):
         script_path = config.runtime['script_source_dir']
         with open(os.path.join(script_path, 'version.txt')) as version_file:
             version = version_file.read().replace('\n', '')
-            tag = f'registry.gitlab.com/kupfer/kupferbootstrap:{version}'
-            if version == 'dev':
-                logging.info(f'Building docker image "{tag}"')
-                cmd = [
-                    'docker',
-                    'build',
-                    '.',
-                    '-t',
-                    tag,
-                ] + (['-q'] if not config.runtime['verbose'] else [])
-                logging.debug('Running docker cmd: ' + ' '.join(cmd))
-                result = subprocess.run(cmd, cwd=script_path, capture_output=True)
-                if result.returncode != 0:
-                    logging.fatal('Failed to build docker image:\n' + result.stderr.decode())
-                    exit(1)
-            else:
-                # Check if the image for the version already exists
-                result = subprocess.run(
-                    [
-                        'docker',
-                        'images',
-                        '-q',
-                        tag,
-                    ],
-                    capture_output=True,
-                )
-                if result.stdout == b'':
-                    logging.info(f'Pulling kupferbootstrap docker image version \'{version}\'')
-                    subprocess.run([
-                        'docker',
-                        'pull',
-                        tag,
-                    ])
-            container_name = f'kupferbootstrap-{self.uuid}'
-
-            wrapped_config = self.generate_wrapper_config()
-
-            ssh_dir = os.path.join(pathlib.Path.home(), '.ssh')
-            if not os.path.exists(ssh_dir):
-                os.makedirs(ssh_dir, mode=0o700)
-            volumes = self.get_bind_mounts_default(wrapped_config)
-            volumes |= dict({config.get_path(vol_name): vol_dest for vol_name, vol_dest in DOCKER_PATHS.items()})
-            docker_cmd = [
+        tag = f'registry.gitlab.com/kupfer/kupferbootstrap:{version}'
+        if version == 'dev':
+            logging.info(f'Building docker image "{tag}"')
+            cmd = [
                 'docker',
-                'run',
-                '--name',
-                container_name,
-                '--rm',
-                '--interactive',
-                '--tty',
-                '--privileged',
-            ] + docker_volumes_args(volumes) + [tag]
+                'build',
+                '.',
+                '-t',
+                tag,
+            ] + (['-q'] if not config.runtime['verbose'] else [])
+            logging.debug('Running docker cmd: ' + ' '.join(cmd))
+            result = subprocess.run(cmd, cwd=script_path, capture_output=True)
+            if result.returncode != 0:
+                logging.fatal('Failed to build docker image:\n' + result.stderr.decode())
+                exit(1)
+        else:
+            # Check if the image for the version already exists
+            result = subprocess.run(
+                [
+                    'docker',
+                    'images',
+                    '-q',
+                    tag,
+                ],
+                capture_output=True,
+            )
+            if result.stdout == b'':
+                logging.info(f'Pulling kupferbootstrap docker image version \'{version}\'')
+                subprocess.run([
+                    'docker',
+                    'pull',
+                    tag,
+                ])
+        container_name = f'kupferbootstrap-{self.uuid}'
 
-            kupfer_cmd = ['kupferbootstrap', '--config', '/root/.config/kupfer/kupferbootstrap.toml'] + self.filter_args_wrapper(sys.argv[1:])
+        wrapped_config = self.generate_wrapper_config()
 
-            cmd = docker_cmd + kupfer_cmd
-            logging.debug('Wrapping in docker:' + repr(cmd))
-            result = subprocess.run(cmd)
+        ssh_dir = os.path.join(pathlib.Path.home(), '.ssh')
+        if not os.path.exists(ssh_dir):
+            os.makedirs(ssh_dir, mode=0o700)
+        volumes = self.get_bind_mounts_default(wrapped_config)
+        volumes |= dict({config.get_path(vol_name): vol_dest for vol_name, vol_dest in DOCKER_PATHS.items()})
+        docker_cmd = [
+            'docker',
+            'run',
+            '--name',
+            container_name,
+            '--rm',
+            '--interactive',
+            '--tty',
+            '--privileged',
+        ] + docker_volumes_args(volumes) + [tag]
 
-            exit(result.returncode)
+        kupfer_cmd = ['kupferbootstrap', '--config', '/root/.config/kupfer/kupferbootstrap.toml'] + self.filter_args_wrapper(sys.argv[1:])
+
+        cmd = docker_cmd + kupfer_cmd
+        logging.debug('Wrapping in docker:' + repr(cmd))
+        result = subprocess.run(cmd)
+
+        exit(result.returncode)
 
     def stop(self):
         subprocess.run(
