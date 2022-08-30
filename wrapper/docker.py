@@ -6,6 +6,8 @@ import sys
 
 from config import config
 from constants import CHROOT_PATHS
+from exec.file import makedir
+
 from .wrapper import BaseWrapper
 
 DOCKER_PATHS = CHROOT_PATHS.copy()
@@ -65,8 +67,12 @@ class DockerWrapper(BaseWrapper):
         ssh_dir = os.path.join(pathlib.Path.home(), '.ssh')
         if not os.path.exists(ssh_dir):
             os.makedirs(ssh_dir, mode=0o700)
+
         volumes = self.get_bind_mounts_default(wrapped_config)
-        volumes |= dict({config.get_path(vol_name): vol_dest for vol_name, vol_dest in DOCKER_PATHS.items()})
+        for vol_name, vol_dest in DOCKER_PATHS.items():
+            vol_src = config.get_path(vol_name)
+            makedir(vol_src)
+            volumes[vol_src] = vol_dest
         docker_cmd = [
             'docker',
             'run',
