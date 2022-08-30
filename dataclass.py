@@ -7,13 +7,13 @@ def munchclass(*args, init=False, **kwargs):
     return dataclass(*args, init=init, slots=True, **kwargs)
 
 
-def resolve_type_hint(hint: type):
+def resolve_type_hint(hint: type) -> Iterable[type]:
     origin = get_origin(hint)
     args: Iterable[type] = get_args(hint)
     if origin is Optional:
         args = set(list(args) + [type(None)])
     if origin in [Union, Optional]:
-        results = []
+        results: list[type] = []
         for arg in args:
             results += resolve_type_hint(arg)
         return results
@@ -33,14 +33,34 @@ class DataClass(Munch):
             value = values.pop(key)
             type_hints = cls._type_hints
             if key in type_hints:
-                _classes = tuple(resolve_type_hint(type_hints[key]))
+                _classes = tuple[type](resolve_type_hint(type_hints[key]))
                 if issubclass(_classes[0], dict):
                     assert isinstance(value, dict)
                     target_class = _classes[0]
-                    if not issubclass(_classes[0], Munch):
-                        target_class = DataClass
+                    if target_class is dict:
+                        target_class = Munch
                     if not isinstance(value, target_class):
-                        value = target_class.fromDict(value, validate=validate)
+                        assert issubclass(target_class, Munch)
+                        # despite the above assert, mypy doesn't seem to understand target_class is a Munch here
+                        value = target_class.fromDict(value, validate=validate)  # type:ignore[attr-defined]
+                # handle numerics
+                elif set(_classes).intersection([int, float]) and isinstance(value, str) and str not in _classes:
+                    parsed_number = None
+                    parsers: list[tuple[type, list]] = [(int, [10]), (int, [0]), (float, [])]
+                    for _cls, args in parsers:
+                        if _cls not in _classes:
+                            continue
+                        try:
+                            parsed_number = _cls(value, *args)
+                            break
+                        except ValueError:
+                            continue
+                    if parsed_number is None:
+                        if validate:
+                            raise Exception(f"Couldn't parse string value {repr(value)} for key '{key}' into number formats: " +
+                                            (', '.join(list(c.__name__ for c in _classes))))
+                    else:
+                        value = parsed_number
                 if validate:
                     if not isinstance(value, _classes):
                         raise Exception(f'key "{key}" has value of wrong type {_classes}: {value}')
