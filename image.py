@@ -15,7 +15,7 @@ from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
-from packages import build_enable_qemu_binfmt, build_packages_by_paths
+from packages.build import build_enable_qemu_binfmt, build_packages_by_paths
 from packages.device import Device, get_profile_device
 from ssh import copy_ssh_keys
 from wrapper import check_programs_wrap, wrap_if_foreign_arch
