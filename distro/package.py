@@ -23,11 +23,11 @@ class PackageInfo:
         return f'{self.name}@{self.version}'
 
     @staticmethod
-    def parse_desc(desc_str: str, resolved_url=None):
+    def parse_desc(desc_str: str, resolved_repo_url=None):
         """Parses a desc file, returning a PackageInfo"""
 
         pruned_lines = ([line.strip() for line in desc_str.split('%') if line.strip()])
         desc = {}
         for key, value in zip(pruned_lines[0::2], pruned_lines[1::2]):
             desc[key.strip()] = value.strip()
-        return PackageInfo(desc['NAME'], desc['VERSION'], desc['FILENAME'], resolved_url='/'.join([resolved_url, desc['FILENAME']]))
+        return PackageInfo(desc['NAME'], desc['VERSION'], desc['FILENAME'], resolved_url='/'.join([resolved_repo_url, desc['FILENAME']]))
