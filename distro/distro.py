@@ -4,7 +4,7 @@ from constants import Arch, ARCHES, BASE_DISTROS, REPOSITORIES, KUPFER_HTTPS, CH
 from generator import generate_pacman_conf_body
 from config import config
 
-from .package import PackageInfo
+from .package import BinaryPackage
 from .repo import RepoInfo, Repo
 
 
@@ -25,9 +25,9 @@ class Distro:
                 scan=scan,
             )
 
-    def get_packages(self) -> dict[str, PackageInfo]:
+    def get_packages(self) -> dict[str, BinaryPackage]:
         """ get packages from all repos, semantically overlaying them"""
-        results = dict[str, PackageInfo]()
+        results = dict[str, BinaryPackage]()
         for repo in list(self.repos.values())[::-1]:
             assert repo.packages is not None
             results.update(repo.packages)

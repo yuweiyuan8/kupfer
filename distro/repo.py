@@ -5,7 +5,7 @@ import tarfile
 import tempfile
 import urllib.request
 
-from .package import PackageInfo
+from .package import BinaryPackage
 
 
 def resolve_url(url_template, repo_name: str, arch: str):
@@ -28,7 +28,7 @@ class Repo(RepoInfo):
     name: str
     resolved_url: str
     arch: str
-    packages: dict[str, PackageInfo]
+    packages: dict[str, BinaryPackage]
     remote: bool
     scanned: bool = False
 
@@ -53,7 +53,7 @@ class Repo(RepoInfo):
             for node in index.getmembers():
                 if os.path.basename(node.name) == 'desc':
                     logging.debug(f'Parsing desc file for {os.path.dirname(node.name)}')
-                    pkg = PackageInfo.parse_desc(index.extractfile(node).read().decode(), self.resolved_url)
+                    pkg = BinaryPackage.parse_desc(index.extractfile(node).read().decode(), self.resolved_url)
                     self.packages[pkg.name] = pkg
 
         self.scanned = True

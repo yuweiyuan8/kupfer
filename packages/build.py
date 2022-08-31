@@ -16,7 +16,7 @@ from config import config
 from exec.cmd import run_cmd, run_root_cmd
 from exec.file import makedir, remove_file
 from chroot.build import get_build_chroot, BuildChroot
-from distro.distro import PackageInfo, get_kupfer_https, get_kupfer_local
+from distro.distro import BinaryPackage, get_kupfer_https, get_kupfer_local
 from wrapper import check_programs_wrap, wrap_if_foreign_arch
 
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbuild
@@ -275,7 +275,7 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
     if pkgname not in repo.packages:
         logging.warning(f"Package {pkgname} not found in remote repos, building instead.")
         return False
-    repo_pkg: PackageInfo = repo.packages[pkgname]
+    repo_pkg: BinaryPackage = repo.packages[pkgname]
     if repo_pkg.version != package.version:
         logging.debug(f"Package {pkgname} versions differ: local: {package.version}, remote: {repo_pkg.version}. Building instead.")
         return False
