@@ -34,3 +34,14 @@ class BinaryPackage(PackageInfo):
         for key, value in zip(pruned_lines[0::2], pruned_lines[1::2]):
             desc[key.strip()] = value.strip()
         return clss(desc['NAME'], desc['VERSION'], desc['FILENAME'], resolved_url='/'.join([resolved_repo_url, desc['FILENAME']]))
+
+    def acquire(self) -> str:
+        raise NotImplementedError()
+
+
+class LocalPackage(BinaryPackage):
+    pass
+
+
+class RemotePackage(BinaryPackage):
+    pass

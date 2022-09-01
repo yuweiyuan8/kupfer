@@ -5,7 +5,11 @@ import tarfile
 import tempfile
 import urllib.request
 
-from .package import BinaryPackage
+from typing import Generic, TypeVar
+
+from .package import BinaryPackage, LocalPackage, RemotePackage
+
+BinaryPackageType = TypeVar('BinaryPackageType', bound=BinaryPackage)
 
 
 def resolve_url(url_template, repo_name: str, arch: str):
@@ -24,11 +28,11 @@ class RepoInfo:
         self.options.update(options)
 
 
-class Repo(RepoInfo):
+class Repo(RepoInfo, Generic[BinaryPackageType]):
     name: str
     resolved_url: str
     arch: str
-    packages: dict[str, BinaryPackage]
+    packages: dict[str, BinaryPackageType]
     remote: bool
     scanned: bool = False
 
@@ -38,25 +42,27 @@ class Repo(RepoInfo):
     def scan(self):
         self.resolved_url = self.resolve_url()
         self.remote = not self.resolved_url.startswith('file://')
-        uri = f'{self.resolved_url}/{self.name}.db'
-        path = ''
-        if self.remote:
-            logging.info(f'Downloading repo file from {uri}')
-            with urllib.request.urlopen(uri) as request:
-                fd, path = tempfile.mkstemp()
-                with open(fd, 'wb') as writable:
-                    writable.write(request.read())
-        else:
-            path = uri.split('file://')[1]
+        path = self.acquire_db_file()
         logging.debug(f'Parsing repo file at {path}')
         with tarfile.open(path) as index:
             for node in index.getmembers():
                 if os.path.basename(node.name) == 'desc':
                     logging.debug(f'Parsing desc file for {os.path.dirname(node.name)}')
-                    pkg = BinaryPackage.parse_desc(index.extractfile(node).read().decode(), self.resolved_url)
+                    fd = index.extractfile(node)
+                    assert fd
+                    pkg = self._parse_desc(fd.read().decode())
                     self.packages[pkg.name] = pkg
 
         self.scanned = True
+
+    def _parse_desc(self, desc_text: str):  # can't annotate the type properly :(
+        raise NotImplementedError()
+
+    def parse_desc(self, desc_text: str) -> BinaryPackageType:
+        return self._parse_desc(desc_text)
+
+    def acquire_db_file(self) -> str:
+        raise NotImplementedError
 
     def __init__(self, name: str, url_template: str, arch: str, options={}, scan=False):
         self.packages = {}
@@ -76,3 +82,27 @@ class Repo(RepoInfo):
 
     def get_RepoInfo(self):
         return RepoInfo(url_template=self.url_template, options=self.options)
+
+
+class LocalRepo(Repo[LocalPackage]):
+
+    def _parse_desc(self, desc_text: str) -> LocalPackage:
+        return LocalPackage.parse_desc(desc_text, resolved_repo_url=self.resolved_url)
+
+    def acquire_db_file(self) -> str:
+        return f'{self.resolved_url}/{self.name}.db'.split('file://')[1]
+
+
+class RemoteRepo(Repo[RemotePackage]):
+
+    def _parse_desc(self, desc_text: str) -> RemotePackage:
+        return RemotePackage.parse_desc(desc_text, resolved_repo_url=self.resolved_url)
+
+    def acquire_db_file(self) -> str:
+        uri = f'{self.resolved_url}/{self.name}.db'
+        logging.info(f'Downloading repo file from {uri}')
+        with urllib.request.urlopen(uri) as request:
+            fd, path = tempfile.mkstemp()
+            with open(fd, 'wb') as writable:
+                writable.write(request.read())
+        return path

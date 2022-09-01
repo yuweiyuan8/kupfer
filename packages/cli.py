@@ -9,6 +9,7 @@ from config import config
 from constants import Arch, ARCHES, REPOSITORIES
 from exec.file import remove_file
 from distro.distro import get_kupfer_local
+from distro.package import LocalPackage
 from ssh import run_ssh_command, scp_put_files
 from utils import git
 from wrapper import check_programs_wrap, enforce_wrap
@@ -85,11 +86,8 @@ def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bo
     arch = arch or get_profile_device(hint_or_set_arch=True).arch
     if not no_build:
         build(paths, False, arch=arch, try_download=True)
-    files = [
-        pkg.resolved_url.split('file://')[1]
-        for pkg in get_kupfer_local(arch=arch, scan=True, in_chroot=False).get_packages().values()
-        if pkg.resolved_url and pkg.name in paths
-    ]
+    repo: dict[str, LocalPackage] = get_kupfer_local(arch=arch, scan=True, in_chroot=False).get_packages()
+    files = [pkg.resolved_url.split('file://')[1] for pkg in repo.values() if pkg.resolved_url and pkg.name in paths]
     logging.debug(f"Sideload: Found package files: {files}")
     if not files:
         logging.fatal("No packages matched")

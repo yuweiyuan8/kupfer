@@ -5,6 +5,7 @@ from typing import Optional
 
 from config import config
 from constants import Arch, BASE_PACKAGES
+from distro.repo import RepoInfo
 from distro.distro import get_kupfer_local, get_kupfer_https
 from exec.file import get_temp_dir, makedir, root_makedir
 from utils import check_findmnt
@@ -56,11 +57,12 @@ def get_device_chroot(
     arch: Arch,
     packages: list[str] = BASE_PACKAGES,
     use_local_repos: bool = True,
-    extra_repos: Optional[dict] = None,
+    extra_repos: Optional[dict[str, RepoInfo]] = None,
     **kwargs,
 ) -> DeviceChroot:
     name = f'rootfs_{device}-{flavour}'
-    repos = dict(get_kupfer_local(arch).repos if use_local_repos else get_kupfer_https(arch).repos)
+    repos: dict[str, RepoInfo] = get_kupfer_local(arch).repos if use_local_repos else get_kupfer_https(arch).repos  # type: ignore
+
     repos.update(extra_repos or {})
 
     default = DeviceChroot(name, arch, initialize=False, copy_base=False, base_packages=packages, extra_repos=repos)
