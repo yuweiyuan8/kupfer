@@ -339,9 +339,11 @@ def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: boo
                 for repo_arch in ARCHES:
                     if repo_arch == arch:
                         continue  # we already have that
-                    copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
+                    repo_dir = os.path.join(config.get_package_dir(repo_arch), package.repo)
+                    copy_target = os.path.join(repo_dir, filename)
                     if not os.path.exists(copy_target):
                         logging.info(f"copying to {copy_target}")
+                        makedir(repo_dir)
                         shutil.copyfile(target_repo_file, copy_target)
                         add_file_to_repo(copy_target, package.repo, repo_arch)
         if not missing:
