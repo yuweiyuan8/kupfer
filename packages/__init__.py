@@ -259,7 +259,9 @@ def add_package_to_repo(package: Pkgbuild, arch: Arch):
             for repo_arch in ARCHES:
                 if repo_arch == arch:
                     continue
-                copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, file)
+                repo_dir = os.path.join(config.get_package_dir(repo_arch), package.repo)
+                makedir(repo_dir)
+                copy_target = os.path.join(repo_dir, file)
                 shutil.copy(repo_file, copy_target)
                 add_file_to_repo(copy_target, package.repo, repo_arch)
 
