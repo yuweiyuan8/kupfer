@@ -193,7 +193,7 @@ def generate_dependency_chain(package_repo: dict[str, Pkgbuild], to_build: Itera
     return list([lvl for lvl in dep_levels[::-1] if lvl])
 
 
-def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
+def add_file_to_repo(file_path: str, repo_name: str, arch: Arch, remove_original: bool = True):
     check_programs_wrap(['repo-add'])
     repo_dir = os.path.join(config.get_package_dir(arch), repo_name)
     pacman_cache_dir = os.path.join(config.get_path('pacman'), arch)
@@ -207,7 +207,8 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
             file_path,
             repo_dir,
         )
-        remove_file(file_path)
+        if remove_original:
+            remove_file(file_path)
 
     # clean up same name package from pacman cache
     cache_file = os.path.join(pacman_cache_dir, file_name)
@@ -229,11 +230,7 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
     if result.returncode != 0:
         raise Exception(f'Failed add package {target_file} to repo {repo_name}')
     for ext in ['db', 'files']:
-        file = os.path.join(repo_dir, f'{repo_name}.{ext}')
-        if os.path.exists(file + '.tar.xz'):
-            remove_file(file)
-            shutil.copyfile(file + '.tar.xz', file)
-        old = file + '.tar.xz.old'
+        old = os.path.join(repo_dir, f'{repo_name}.{ext}.tar.xz.old')
         if os.path.exists(old):
             remove_file(old)
 
@@ -252,9 +249,12 @@ def add_package_to_repo(package: Pkgbuild, arch: Arch):
 
     files = []
     for file in os.listdir(pkgbuild_dir):
-        stripped_name = strip_compression_extension(file)
         # Forced extension by makepkg.conf
-        if not stripped_name.endswith('.pkg.tar'):
+        pkgext = '.pkg.tar'
+        if pkgext not in file:
+            continue
+        stripped_name = strip_compression_extension(file)
+        if not stripped_name.endswith(pkgext):
             continue
 
         repo_file = os.path.join(config.get_package_dir(arch), package.repo, file)
@@ -262,13 +262,11 @@ def add_package_to_repo(package: Pkgbuild, arch: Arch):
         add_file_to_repo(os.path.join(pkgbuild_dir, file), package.repo, arch)
 
         # copy any-arch packages to other repos as well
-        if stripped_name.endswith('any.pkg.tar'):
+        if stripped_name.endswith(f'-any{pkgext}'):
             for repo_arch in ARCHES:
                 if repo_arch == arch:
-                    continue
-                copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, file)
-                shutil.copy(repo_file, copy_target)
-                add_file_to_repo(copy_target, package.repo, repo_arch)
+                    continue  # done already
+                add_file_to_repo(repo_file, package.repo, repo_arch, remove_original=False)
 
     return files
 
