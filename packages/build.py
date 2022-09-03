@@ -14,7 +14,7 @@ from binfmt import register as binfmt_register, QEMU_ARCHES
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
 from exec.cmd import run_cmd, run_root_cmd
-from exec.file import makedir, remove_file
+from exec.file import makedir, remove_file, symlink
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import BinaryPackage, get_kupfer_https, get_kupfer_local
 from wrapper import check_programs_wrap, wrap_if_foreign_arch
@@ -46,31 +46,42 @@ def get_makepkg_env(arch: Optional[Arch] = None):
     return env
 
 
-def init_prebuilts(arch: Arch, dir: str = None):
+def init_local_repo(repo: str, arch: Arch):
+    repo_dir = os.path.join(config.get_package_dir(arch), repo)
+    if not os.path.exists(repo_dir):
+        logging.info(f"Creating local repo {repo} ({arch})")
+        makedir(repo_dir)
+    for ext in ['db', 'files']:
+        filename_stripped = f'{repo}.{ext}'
+        filename = f'{filename_stripped}.tar.xz'
+        if not os.path.exists(os.path.join(repo_dir, filename)):
+            logging.info(f"Initialising local repo {f'{ext} ' if ext != 'db' else ''}db for repo {repo} ({arch})")
+            result = run_cmd(
+                [
+                    'tar',
+                    '-czf',
+                    filename,
+                    '-T',
+                    '/dev/null',
+                ],
+                cwd=os.path.join(repo_dir),
+            )
+            assert isinstance(result, subprocess.CompletedProcess)
+            if result.returncode != 0:
+                raise Exception(f'Failed to create local repo {repo}')
+        symlink_path = os.path.join(repo_dir, filename_stripped)
+        if not os.path.islink(symlink_path):
+            if os.path.exists(symlink_path):
+                remove_file(symlink_path)
+            symlink(filename, symlink_path)
+
+
+def init_prebuilts(arch: Arch):
     """Ensure that all `constants.REPOSITORIES` inside `dir` exist"""
-    prebuilts_dir = dir or config.get_package_dir(arch)
+    prebuilts_dir = config.get_path('packages')
     makedir(prebuilts_dir)
     for repo in REPOSITORIES:
-        repo_dir = os.path.join(prebuilts_dir, repo)
-        if not os.path.exists(repo_dir):
-            logging.info(f"Creating local repo {repo} ({arch})")
-            makedir(repo_dir)
-        for ext1 in ['db', 'files']:
-            for ext2 in ['', '.tar.xz']:
-                if not os.path.exists(os.path.join(prebuilts_dir, repo, f'{repo}.{ext1}{ext2}')):
-                    result = run_cmd(
-                        [
-                            'tar',
-                            '-czf',
-                            f'{repo}.{ext1}{ext2}',
-                            '-T',
-                            '/dev/null',
-                        ],
-                        cwd=os.path.join(prebuilts_dir, repo),
-                    )
-                    assert isinstance(result, subprocess.CompletedProcess)
-                    if result.returncode != 0:
-                        raise Exception(f'Failed to create local repo {repo}')
+        init_local_repo(repo, arch)
 
 
 def generate_dependency_chain(package_repo: dict[str, Pkgbuild], to_build: Iterable[Pkgbuild]) -> list[set[Pkgbuild]]:
@@ -189,7 +200,7 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch):
     file_name = os.path.basename(file_path)
     target_file = os.path.join(repo_dir, file_name)
 
-    makedir(repo_dir)
+    init_local_repo(repo_name, arch)
     if file_path != target_file:
         logging.debug(f'moving {file_path} to {target_file} ({repo_dir})')
         shutil.copy(
