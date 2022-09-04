@@ -11,7 +11,7 @@ from distro.package import LocalPackage
 from utils import read_files_from_tar
 
 from .build import check_package_version_built
-from .pkgbuild import discover_pkgbuilds, get_pkgbuild_by_path, _pkgbuilds_cache, Pkgbuild
+from .pkgbuild import Pkgbuild, _pkgbuilds_cache, discover_pkgbuilds, get_pkgbuild_by_path, init_pkgbuilds
 from .deviceinfo import DeviceInfo, parse_deviceinfo
 
 DEVICE_DEPRECATIONS = {
@@ -134,8 +134,10 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
             if lazy and pkgname in _pkgbuilds_cache:
                 pkgbuild = _pkgbuilds_cache[pkgname]
             else:
+                init_pkgbuilds()
                 relative_path = os.path.join('device', pkgname)
-                assert os.path.exists(os.path.join(config.get_path('pkgbuilds'), relative_path))
+                if not os.path.exists(os.path.join(config.get_path('pkgbuilds'), relative_path)):
+                    raise Exception(f'unknown device "{name}": pkgbuilds/{relative_path} doesn\'t exist.')
                 pkgbuild = [p for p in get_pkgbuild_by_path(relative_path, lazy=lazy, _config=config) if p.name == pkgname][0]
         device = parse_device_pkg(pkgbuild)
         if lazy:
