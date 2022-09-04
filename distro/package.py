@@ -1,4 +1,11 @@
+import logging
+import os
+
+from shutil import copyfileobj
 from typing import Optional
+from urllib.request import urlopen
+
+from exec.file import get_temp_dir, makedir
 
 
 class PackageInfo:
@@ -40,8 +47,27 @@ class BinaryPackage(PackageInfo):
 
 
 class LocalPackage(BinaryPackage):
-    pass
+
+    def acquire(self) -> str:
+        assert self.resolved_url and self.filename and self.filename in self.resolved_url
+        path = f'{self.resolved_url.split("file://")[1]}'
+        assert os.path.exists(path) or print(path)
+        return path
 
 
 class RemotePackage(BinaryPackage):
-    pass
+
+    def acquire(self, dest_dir: Optional[str] = None) -> str:
+        assert self.resolved_url and '.pkg.tar.' in self.resolved_url
+        url = f"{self.resolved_url}"
+        assert url
+
+        dest_dir = dest_dir or get_temp_dir()
+        makedir(dest_dir)
+        dest_file_path = os.path.join(dest_dir, self.filename)
+
+        logging.info(f"Trying to download package {url}")
+        with urlopen(url) as fsrc, open(dest_file_path, 'wb') as fdst:
+            copyfileobj(fsrc, fdst)
+        logging.info(f"{self.filename} downloaded from repos")
+        return dest_file_path
