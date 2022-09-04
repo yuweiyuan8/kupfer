@@ -27,8 +27,10 @@ def cmd_flash(what: str, location: str):
     device_image_name = get_image_name(device, flavour)
     device_image_path = get_image_path(device, flavour)
 
-    # TODO: PARSE DEVICE SECTOR SIZE
-    sector_size = 4096
+    deviceinfo = device.parse_deviceinfo()
+    sector_size = deviceinfo.flash_pagesize
+    if not sector_size:
+        raise Exception(f"Device {device.name} has no flash_pagesize specified")
 
     if what not in FLASH_PARTS.values():
         raise Exception(f'Unknown what "{what}", must be one of {", ".join(FLASH_PARTS.values())}')

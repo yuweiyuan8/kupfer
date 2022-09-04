@@ -397,7 +397,11 @@ def cmd_build(profile_name: str = None,
     flavour = get_flavour(profile_name)
     size_extra_mb: int = int(profile["size_extra_mb"])
 
-    sector_size = 4096
+    deviceinfo = device.parse_deviceinfo()
+    sector_size = deviceinfo.flash_pagesize
+    if not sector_size:
+        raise Exception(f"Device {device.name} has no flash_pagesize specified")
+
     rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
 
     packages = BASE_PACKAGES + [device.package.name] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
@@ -466,9 +470,12 @@ def cmd_inspect(profile: str = None, shell: bool = False):
     arch = device.arch
     wrap_if_foreign_arch(arch)
     flavour = get_flavour(profile)
-    # TODO: PARSE DEVICE SECTOR SIZE
-    sector_size = 4096
-    chroot = get_device_chroot(device, flavour, arch)
+    deviceinfo = device.parse_deviceinfo()
+    sector_size = deviceinfo.flash_pagesize
+    if not sector_size:
+        raise Exception(f"Device {device.name} has no flash_pagesize specified")
+
+    chroot = get_device_chroot(device.name, flavour, arch)
     image_path = get_image_path(device, flavour)
     loop_device = losetup_rootfs_image(image_path, sector_size)
     partprobe(loop_device)
