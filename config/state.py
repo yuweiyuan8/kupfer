@@ -234,6 +234,7 @@ class ConfigStateHolder:
         return self._profile_cache[name]
 
     def enforce_profile_device_set(self, profile_name: Optional[str] = None, hint_or_set_arch: bool = False) -> Profile:
+        profile_name = profile_name if profile_name is not None else self.file.profiles.current
         arch_hint = ''
         if not hint_or_set_arch:
             self.enforce_config_loaded()
