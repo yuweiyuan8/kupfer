@@ -1,4 +1,4 @@
-from constants import Arch, GCC_HOSTSPECS, CFLAGS_GENERAL, CFLAGS_ARCHES, COMPILE_ARCHES, CHROOT_PATHS
+from constants import Arch, CFLAGS_ARCHES, CFLAGS_GENERAL, COMPILE_ARCHES, GCC_HOSTSPECS
 from config import config
 
 
@@ -196,7 +196,7 @@ def generate_pacman_conf_body(
     check_space: bool = True,
     in_chroot: bool = True,
 ):
-    pacman_cache = config.get_path('pacman') if not in_chroot else CHROOT_PATHS['pacman']
+    pacman_cache = f"{config.get_path('pacman')}/{arch}" if not in_chroot else '/var/cache/pacman/pkg'
     return f'''
 #
 # /etc/pacman.conf
@@ -211,7 +211,7 @@ def generate_pacman_conf_body(
 # If you wish to use different paths, uncomment and update the paths.
 #RootDir     = /
 #DBPath      = /var/lib/pacman/
-CacheDir    = {pacman_cache}/{arch}
+CacheDir    = {pacman_cache}
 #LogFile     = /var/log/pacman.log
 #GPGDir      = /etc/pacman.d/gnupg/
 #HookDir     = /etc/pacman.d/hooks/

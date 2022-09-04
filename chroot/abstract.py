@@ -256,12 +256,13 @@ class Chroot(AbstractChroot):
         )
 
     def mount_pacman_cache(self, fail_if_mounted: bool = False) -> str:
-        arch_cache = os.path.join(config.get_path('pacman'), self.arch)
-        rel_target = os.path.join(CHROOT_PATHS['pacman'].lstrip('/'), self.arch)
-        makedir(arch_cache)
+        shared_cache = os.path.join(config.get_path('pacman'), self.arch)
+        rel_target = 'var/cache/pacman/pkg'
+        makedir(shared_cache)
         root_makedir(self.get_path(rel_target))
+        print(self.get_path(rel_target))
         return self.mount(
-            arch_cache,
+            shared_cache,
             rel_target,
             fail_if_mounted=fail_if_mounted,
         )
