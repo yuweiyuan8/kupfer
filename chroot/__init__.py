@@ -8,54 +8,60 @@ from wrapper import enforce_wrap
 from .abstract import Chroot
 from .base import get_base_chroot
 from .build import get_build_chroot, BuildChroot
-from .helpers import get_chroot_path
 
 # export Chroot class
 Chroot = Chroot
 
+CHROOT_TYPES = ['base', 'build', 'rootfs']
+
 
 @click.command('chroot')
-@click.argument('type', required=False, default='build')
-@click.argument('arch', required=False, default=None)
-def cmd_chroot(type: str = 'build', arch: str = None, enable_crossdirect=True):
-    """Open a shell in a chroot"""
-    chroot_path = ''
-    if type not in ['base', 'build', 'rootfs']:
-        raise Exception('Unknown chroot type: ' + type)
+@click.argument('type', required=False, type=click.Choice(CHROOT_TYPES), default='build')
+@click.argument(
+    'name',
+    required=False,
+    default=None,
+)
+@click.pass_context
+def cmd_chroot(ctx: click.Context, type: str = 'build', name: str = None, enable_crossdirect=True):
+    """Open a shell in a chroot. For rootfs NAME is a profile name, for others the architecture (e.g. aarch64)."""
+
+    if type not in CHROOT_TYPES:
+        raise Exception(f'Unknown chroot type: "{type}"')
+
+    if type == 'rootfs':
+        from image import cmd_inspect
+        assert isinstance(cmd_inspect, click.Command)
+        ctx.invoke(cmd_inspect, profile=name, shell=True)
+        return
 
     enforce_wrap()
+
     chroot: Chroot
-    if type == 'rootfs':
-        if arch:
-            name = 'rootfs_' + arch
-        else:
-            raise Exception('"rootfs" without args not yet implemented, sorry!')
-            # TODO: name = config.get_profile()[...]
-        chroot_path = get_chroot_path(name)
-        if not os.path.exists(chroot_path):
-            raise Exception(f"rootfs {name} doesn't exist")
+    arch = name
+    if not arch:
+        # TODO: importing packages.device.get_profile_device() causes import loop:
+        # arch = get_profile_device().arch
+        arch = config.runtime.arch
+    assert arch
+    if type == 'base':
+        chroot = get_base_chroot(arch)
+        if not os.path.exists(chroot.get_path('/bin')):
+            chroot.initialize()
+        chroot.initialized = True
+    elif type == 'build':
+        build_chroot: BuildChroot = get_build_chroot(arch, activate=True)
+        chroot = build_chroot  # type safety
+        if not os.path.exists(build_chroot.get_path('/bin')):
+            build_chroot.initialize()
+        build_chroot.initialized = True
+        build_chroot.mount_pkgbuilds()
+        build_chroot.mount_chroots()
+        assert arch and config.runtime.arch
+        if config.file.build.crossdirect and enable_crossdirect and arch != config.runtime.arch:
+            build_chroot.mount_crossdirect()
     else:
-        if not arch:
-            # TODO: arch = config.get_profile()[...]
-            arch = 'aarch64'
-        if type == 'base':
-            chroot = get_base_chroot(arch)
-            if not os.path.exists(chroot.get_path('/bin')):
-                chroot.initialize()
-            chroot.initialized = True
-        elif type == 'build':
-            build_chroot: BuildChroot = get_build_chroot(arch, activate=True)
-            chroot = build_chroot  # type safety
-            if not os.path.exists(build_chroot.get_path('/bin')):
-                build_chroot.initialize()
-            build_chroot.initialized = True
-            build_chroot.mount_pkgbuilds()
-            build_chroot.mount_chroots()
-            assert arch and config.runtime.arch
-            if config.file.build.crossdirect and enable_crossdirect and arch != config.runtime.arch:
-                build_chroot.mount_crossdirect()
-        else:
-            raise Exception('Really weird bug')
+        raise Exception('Really weird bug')
 
     chroot.mount_packages()
     chroot.activate()
