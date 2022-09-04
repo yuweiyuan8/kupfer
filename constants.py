@@ -175,10 +175,10 @@ SSH_COMMON_OPTIONS = [
 ]
 
 CHROOT_PATHS = {
-    'chroots': '/chroot',
+    'chroots': '/chroots',
     'jumpdrive': '/var/cache/jumpdrive',
-    'pacman': '/var/cache/pacman',
-    'packages': '/prebuilts',
+    'pacman': '/pacman',
+    'packages': '/packages',
     'pkgbuilds': '/pkgbuilds',
     'images': '/images',
 }
