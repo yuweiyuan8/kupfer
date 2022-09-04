@@ -1,10 +1,13 @@
 import atexit
 import grp
 import logging
+import os
 import pwd
 import subprocess
+import tarfile
+
 from shutil import which
-from typing import Optional, Union, Sequence
+from typing import Generator, IO, Optional, Union, Sequence
 
 from exec.cmd import run_cmd, run_root_cmd
 
@@ -104,3 +107,12 @@ def get_gid(group: Union[int, str]) -> int:
     if isinstance(group, int) or group.isnumeric():
         return int(group)
     return grp.getgrnam(group).gr_gid
+
+
+def read_files_from_tar(tar_file: str, files: Sequence[str]) -> Generator[tuple[str, IO], None, None]:
+    assert os.path.exists(tar_file)
+    with tarfile.open(tar_file) as index:
+        for path in files:
+            fd = index.extractfile(index.getmember(path))
+            assert fd
+            yield path, fd
