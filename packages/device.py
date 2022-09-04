@@ -6,7 +6,13 @@ from typing import Optional
 from config import config
 from constants import Arch, ARCHES
 from config.scheme import DataClass, munchclass
+from distro.distro import get_kupfer_local
+from distro.package import LocalPackage
+from utils import read_files_from_tar
+
+from .build import check_package_version_built
 from .pkgbuild import discover_pkgbuilds, get_pkgbuild_by_path, _pkgbuilds_cache, Pkgbuild
+from .deviceinfo import DeviceInfo, parse_deviceinfo
 
 DEVICE_DEPRECATIONS = {
     "oneplus-enchilada": "sdm845-oneplus-enchilada",
@@ -22,9 +28,34 @@ class Device(DataClass):
     name: str
     arch: Arch
     package: Pkgbuild
+    deviceinfo: Optional[DeviceInfo]
 
-    def parse_deviceinfo(self):
-        pass
+    def parse_deviceinfo(self, try_download: bool = True, lazy: bool = True):
+        if not lazy or 'deviceinfo' not in self or self.deviceinfo is None:
+            is_built = check_package_version_built(self.package, self.arch, try_download=try_download)
+            if not is_built:
+                raise Exception(f"device package {self.package.name} for device {self.name} couldn't be acquired!")
+            pkgs: dict[str, LocalPackage] = get_kupfer_local(arch=self.arch, in_chroot=False, scan=True).get_packages()
+            if self.package.name not in pkgs:
+                raise Exception(f"device package {self.package.name} somehow not in repos, this is a kupferbootstrap bug")
+            pkg = pkgs[self.package.name]
+            file_path = pkg.acquire()
+            assert file_path
+            assert os.path.exists(file_path)
+            deviceinfo_path = 'etc/kupfer/deviceinfo'
+            for path, f in read_files_from_tar(file_path, [deviceinfo_path]):
+                if path != deviceinfo_path:
+                    raise Exception(f'Somehow, we got a wrong file: expected: "{deviceinfo_path}", got: "{path}"')
+                with f as fd:
+                    lines = fd.readlines()
+                    assert lines
+                    if lines and isinstance(lines[0], bytes):
+                        lines = [line.decode() for line in lines]
+            info = parse_deviceinfo(lines, self.name)
+            assert info.arch
+            assert info.arch == self.arch
+            self['deviceinfo'] = info
+        return self.deviceinfo
 
 
 def check_devicepkg_name(name: str, log_level: Optional[int] = None):
