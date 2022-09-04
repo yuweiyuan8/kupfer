@@ -6,8 +6,6 @@ import subprocess
 
 from copy import deepcopy
 from urllib.error import HTTPError
-from urllib.request import urlopen
-from shutil import copyfileobj
 from typing import Iterable, Iterator, Optional
 
 from binfmt import register as binfmt_register, QEMU_ARCHES
@@ -16,7 +14,8 @@ from config import config
 from exec.cmd import run_cmd, run_root_cmd
 from exec.file import makedir, remove_file, symlink
 from chroot.build import get_build_chroot, BuildChroot
-from distro.distro import BinaryPackage, get_kupfer_https, get_kupfer_local
+from distro.distro import get_kupfer_https, get_kupfer_local
+from distro.package import RemotePackage
 from wrapper import check_programs_wrap, wrap_if_foreign_arch
 
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbuild
@@ -271,7 +270,7 @@ def add_package_to_repo(package: Pkgbuild, arch: Arch):
     return files
 
 
-def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> bool:
+def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> Optional[str]:
     logging.debug(f"checking if we can download {package.name}")
     filename = os.path.basename(dest_file_path)
     pkgname = package.name
@@ -279,33 +278,33 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
     repos = get_kupfer_https(arch, scan=True).repos
     if repo_name not in repos:
         logging.warning(f"Repository {repo_name} is not a known HTTPS repo")
-        return False
+        return None
     repo = repos[repo_name]
     if pkgname not in repo.packages:
         logging.warning(f"Package {pkgname} not found in remote repos, building instead.")
-        return False
-    repo_pkg: BinaryPackage = repo.packages[pkgname]
+        return None
+    repo_pkg: RemotePackage = repo.packages[pkgname]
     if repo_pkg.version != package.version:
         logging.debug(f"Package {pkgname} versions differ: local: {package.version}, remote: {repo_pkg.version}. Building instead.")
-        return False
+        return None
     if repo_pkg.filename != filename:
-        logging.debug(f"package filenames don't match: local: {filename}, remote: {repo_pkg.filename}")
-        return False
-    url = f"{repo.resolve_url()}/{filename}"
+        versions_str = f"local: {filename}, remote: {repo_pkg.filename}"
+        if strip_compression_extension(repo_pkg.filename) != strip_compression_extension(filename):
+            logging.debug(f"package filenames don't match: {versions_str}")
+            return None
+        logging.debug(f"ignoring compression extension difference: {versions_str}")
+    url = repo_pkg.resolved_url
     assert url
     try:
-        logging.info(f"Trying to download package {url}")
-        makedir(os.path.dirname(dest_file_path))
-        with urlopen(url) as fsrc, open(dest_file_path, 'wb') as fdst:
-            copyfileobj(fsrc, fdst)
-            logging.info(f"{filename} downloaded from repos")
-            return True
+        path = repo_pkg.acquire()
+        assert os.path.exists(path)
+        return path
     except HTTPError as e:
         if e.code == 404:
-            logging.debug(f"remote package {filename} nonexistant on server: {url}")
+            logging.debug(f"remote package {filename} missing on server: {url}")
         else:
             logging.error(f"remote package {filename} failed to download ({e.code}): {url}: {e}")
-        return False
+        return None
 
 
 def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: bool = False) -> bool:
@@ -313,42 +312,48 @@ def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: boo
     filename = package.get_filename(arch)
     filename_stripped = strip_compression_extension(filename)
     logging.debug(f'Checking if {filename_stripped} is built')
+    any_arch = filename_stripped.endswith('any.pkg.tar')
+    if any_arch:
+        logging.debug("any-arch pkg detected")
     for ext in ['xz', 'zst']:
         file = os.path.join(config.get_package_dir(arch), package.repo, f'{filename_stripped}.{ext}')
         if not filename_stripped.endswith('.pkg.tar'):
             raise Exception(f'stripped filename has unknown extension. {filename}')
-        if os.path.exists(file) or (try_download and try_download_package(file, package, arch)):
+        if not os.path.exists(file):
+            # look for 'any' arch packages in other repos
+            if any_arch:
+                target_repo_file = os.path.join(config.get_package_dir(arch), package.repo, filename)
+                if os.path.exists(target_repo_file):
+                    file = target_repo_file
+                    missing = False
+                else:
+                    # we have to check if another arch's repo holds our any-arch pkg
+                    for repo_arch in ARCHES:
+                        if repo_arch == arch:
+                            continue  # we already checked that
+                        other_repo_file = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
+                        if os.path.exists(other_repo_file):
+                            logging.info(f"package {file} found in {repo_arch} repo, copying to {arch}")
+                            file = other_repo_file
+                            missing = False
+            if try_download and missing:
+                downloaded = try_download_package(file, package, arch)
+                if downloaded:
+                    file = downloaded
+                    missing = False
+        if os.path.exists(file):
             missing = False
-            add_file_to_repo(file, repo_name=package.repo, arch=arch)
+            add_file_to_repo(file, repo_name=package.repo, arch=arch, remove_original=False)
         # copy arch=(any) packages to all arches
-        if filename_stripped.endswith('any.pkg.tar'):
-            logging.debug("any-arch pkg detected")
-            target_repo_file = os.path.join(config.get_package_dir(arch), package.repo, filename)
-            if os.path.exists(target_repo_file):
-                missing = False
-            else:
-                # we have to check if another arch's repo holds our any-arch pkg
-                for repo_arch in ARCHES:
-                    if repo_arch == arch:
-                        continue  # we already checked that
-                    other_repo_path = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
-                    if os.path.exists(other_repo_path):
-                        missing = False
-                        logging.info(f"package {file} found in {repo_arch} repos, copying to {arch}")
-                        shutil.copyfile(other_repo_path, target_repo_file)
-                        add_file_to_repo(target_repo_file, package.repo, arch)
-                        break
-
-            if os.path.exists(target_repo_file):
-                # copy to other arches if they don't have it
-                for repo_arch in ARCHES:
-                    if repo_arch == arch:
-                        continue  # we already have that
-                    copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
-                    if not os.path.exists(copy_target):
-                        logging.info(f"copying to {copy_target}")
-                        shutil.copyfile(target_repo_file, copy_target)
-                        add_file_to_repo(copy_target, package.repo, repo_arch)
+        if any_arch and not missing:
+            # copy to other arches if they don't have it
+            for repo_arch in ARCHES:
+                if repo_arch == arch:
+                    continue  # we already have that
+                copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
+                if not os.path.exists(copy_target):
+                    logging.info(f"copying any-arch package {package.name} to {repo_arch} repo: {copy_target}")
+                    add_file_to_repo(file, package.repo, repo_arch, remove_original=False)
         if not missing:
             return True
     return False
