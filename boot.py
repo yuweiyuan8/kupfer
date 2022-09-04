@@ -23,8 +23,10 @@ def cmd_boot(type):
     enforce_wrap()
     device = get_profile_device()
     flavour = get_flavour()
-    # TODO: parse arch and sector size
-    sector_size = 4096
+    deviceinfo = device.parse_deviceinfo()
+    sector_size = deviceinfo.flash_pagesize
+    if not sector_size:
+        raise Exception(f"Device {device.name} has no flash_pagesize specified")
     image_path = get_image_path(device, flavour)
     strategy = BOOT_STRATEGIES[device]
 
