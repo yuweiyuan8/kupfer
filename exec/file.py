@@ -161,10 +161,14 @@ def root_makedir(path, parents: bool = True):
 
 
 def symlink(source, target):
+    "Create a symlink at `target`, pointing at `source`"
     try:
         os.symlink(source, target)
     except:
-        run_root_cmd(['ln', '-s', source, target])
+        result = run_root_cmd(['ln', '-s', source, target])
+        assert isinstance(result, subprocess.CompletedProcess)
+        if result.returncode:
+            raise Exception(f'Symlink creation of {target} pointing at {source} failed')
 
 
 def get_temp_dir(register_cleanup=True, mode: int = 0o0755):
