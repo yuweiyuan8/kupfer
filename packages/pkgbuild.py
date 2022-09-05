@@ -236,14 +236,12 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
         splits = line.split(' = ')
         if line.startswith('pkgbase'):
             base_package.name = splits[1]
-            multi_pkgs = True
         elif line.startswith('pkgname'):
-            if multi_pkgs:
-                current = SubPkgbuild(splits[1], base_package)
-                assert isinstance(base_package.subpackages, list)
-                base_package.subpackages.append(current)
-            else:
-                current.name = splits[1]
+            current = SubPkgbuild(splits[1], base_package)
+            assert isinstance(base_package.subpackages, list)
+            base_package.subpackages.append(current)
+            if current.name != base_package.name:
+                multi_pkgs = True
         elif line.startswith('pkgver'):
             current.pkgver = splits[1]
         elif line.startswith('pkgrel'):
@@ -258,12 +256,10 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
             current.depends.append(splits[1].split('=')[0].split(': ')[0])
 
     results: list[Pkgbuild] = list(base_package.subpackages)
-    if len(results) > 1:
+    if multi_pkgs:
         logging.debug(f" Split package detected: {base_package.name}: {results}")
-        base_package.update_version()
-    else:
-        results = [base_package]
 
+    base_package.update_version()
     for pkg in results:
         assert isinstance(pkg, Pkgbuild)
         pkg.depends = list(set(pkg.depends))  # deduplicate dependencies
