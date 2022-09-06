@@ -316,6 +316,8 @@ def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: boo
     any_arch = filename_stripped.endswith('any.pkg.tar')
     if any_arch:
         logging.debug("any-arch pkg detected")
+
+    init_prebuilts(arch)
     for ext in ['xz', 'zst']:
         file = os.path.join(config.get_package_dir(arch), package.repo, f'{filename_stripped}.{ext}')
         if not filename_stripped.endswith('.pkg.tar'):
