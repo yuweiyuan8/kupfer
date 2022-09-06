@@ -397,13 +397,6 @@ def cmd_build(profile_name: str = None,
     flavour = get_flavour(profile_name)
     size_extra_mb: int = int(profile["size_extra_mb"])
 
-    deviceinfo = device.parse_deviceinfo()
-    sector_size = deviceinfo.flash_pagesize
-    if not sector_size:
-        raise Exception(f"Device {device.name} has no flash_pagesize specified")
-
-    rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
-
     packages = BASE_PACKAGES + [device.package.name] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
 
     if arch != config.runtime.arch:
@@ -412,6 +405,13 @@ def cmd_build(profile_name: str = None,
     if local_repos and build_pkgs:
         logging.info("Making sure all packages are built")
         build_packages_by_paths(packages, arch, try_download=not no_download_pkgs)
+
+    deviceinfo = device.parse_deviceinfo()
+    sector_size = deviceinfo.flash_pagesize
+    if not sector_size:
+        raise Exception(f"Device {device.name} has no flash_pagesize specified")
+
+    rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
 
     image_path = block_target or get_image_path(device, flavour)
 
