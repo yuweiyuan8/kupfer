@@ -274,8 +274,9 @@ class ConfigStateHolder:
             path = self.runtime.config_file
         assert path
         os.makedirs(os.path.dirname(path), exist_ok=True)
+        new = not os.path.exists(path)
         dump_file(path, self.file)
-        logging.info(f'Created config file at {path}')
+        logging.info(f'{"Created" if new else "Written changes to"} config file at {path}')
 
     def invalidate_profile_cache(self):
         """Clear the profile cache (usually after modification)"""
@@ -284,9 +285,9 @@ class ConfigStateHolder:
     def update(self, config_fragment: dict[str, dict], warn_missing_defaultprofile: bool = True) -> bool:
         """Update `self.file` with `config_fragment`. Returns `True` if the config was changed"""
         merged = merge_configs(config_fragment, conf_base=self.file, warn_missing_defaultprofile=warn_missing_defaultprofile)
-        changed = self.file != merged
+        changed = self.file.toDict() != merged
         self.file.update(merged)
-        if changed and 'profiles' in config_fragment and self.file.profiles != config_fragment['profiles']:
+        if changed and 'profiles' in config_fragment and self.file.profiles.toDict() != config_fragment['profiles']:
             self.invalidate_profile_cache()
         return changed
 
