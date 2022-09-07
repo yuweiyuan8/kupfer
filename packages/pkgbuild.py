@@ -72,6 +72,7 @@ class Pkgbuild(PackageInfo):
     path: str
     pkgver: str
     pkgrel: str
+    description: str
     sources_refreshed: bool
 
     def __init__(
@@ -100,6 +101,7 @@ class Pkgbuild(PackageInfo):
         self.path = relative_path
         self.pkgver = ''
         self.pkgrel = ''
+        self.description = ''
         self.sources_refreshed = sources_refreshed
 
     def __repr__(self):
@@ -129,6 +131,7 @@ class Pkgbuild(PackageInfo):
         self.path = pkg.path
         self.pkgver = pkg.pkgver
         self.pkgrel = pkg.pkgrel
+        self.description = pkg.description
         self.sources_refreshed = self.sources_refreshed or pkg.sources_refreshed
         self.update_version()
 
@@ -253,6 +256,8 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
             current.pkgver = splits[1]
         elif line.startswith('pkgrel'):
             current.pkgrel = splits[1]
+        elif line.startswith('pkgdesc'):
+            current.description = splits[1]
         elif line.startswith('arch'):
             current.arches.append(splits[1])
         elif line.startswith('provides'):
