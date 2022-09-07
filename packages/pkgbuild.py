@@ -292,6 +292,16 @@ def get_pkgbuild_by_path(relative_path: str, lazy: bool = True, _config: Optiona
     return parsed
 
 
+def get_pkgbuild_by_name(name: str, lazy: bool = True):
+    if lazy and name in _pkgbuilds_cache:
+        return _pkgbuilds_cache[name]
+    if _pkgbuilds_scanned and lazy:
+        raise Exception(f"couldn't find PKGBUILD for package with name {name}")
+    discover_pkgbuilds(lazy=lazy)
+    assert _pkgbuilds_scanned
+    return get_pkgbuild_by_name(name=name, lazy=lazy)
+
+
 def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
     global _pkgbuilds_cache, _pkgbuilds_scanned
     if lazy and _pkgbuilds_scanned:
