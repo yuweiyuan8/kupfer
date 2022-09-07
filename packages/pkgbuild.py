@@ -45,11 +45,18 @@ def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=F
                 raise Exception('failed to update pkgbuilds')
 
 
-def init_pkgbuilds(interactive=False):
+_pkgbuilds_initialised: bool = False
+
+
+def init_pkgbuilds(interactive=False, lazy: bool = True):
+    global _pkgbuilds_initialised
+    if lazy and _pkgbuilds_initialised:
+        return
     pkgbuilds_dir = config.get_path('pkgbuilds')
     repo_url = config.file.pkgbuilds.git_repo
     branch = config.file.pkgbuilds.git_branch
     clone_pkbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
+    _pkgbuilds_initialised = True
 
 
 class Pkgbuild(PackageInfo):
