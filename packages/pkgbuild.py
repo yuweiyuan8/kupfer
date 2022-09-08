@@ -307,7 +307,7 @@ def get_pkgbuild_by_name(name: str, lazy: bool = True):
     return get_pkgbuild_by_name(name=name, lazy=lazy)
 
 
-def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pkgbuild]:
+def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: Optional[list[str]] = None) -> dict[str, Pkgbuild]:
     global _pkgbuilds_cache, _pkgbuilds_scanned
     if lazy and _pkgbuilds_scanned:
         logging.debug("Reusing cached pkgbuilds repo")
@@ -316,7 +316,7 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
     packages: dict[str, Pkgbuild] = {}
     paths = []
     init_pkgbuilds(interactive=False)
-    for repo in REPOSITORIES:
+    for repo in repositories or REPOSITORIES:
         for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
             p = os.path.join(repo, dir)
             if not os.path.exists(os.path.join(pkgbuilds_dir, p, 'PKGBUILD')):
@@ -356,6 +356,14 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
                 logging.warning(f'Overriding {packages[package.name]} with {package}')
             packages[name] = package
 
+    if not repositories:
+        # partial scans (specific repos) don't count as truly scanned
+        _pkgbuilds_cache.clear()
+        _pkgbuilds_scanned = True
+    _pkgbuilds_cache.update(packages)
+
+    packages = _pkgbuilds_cache  # we need to iterate over the entire cache in case partial scans happened
+
     # This filters the deps to only include the ones that are provided in this repo
     for package in packages.values():
         package.local_depends = package.depends.copy()
@@ -372,9 +380,6 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True) -> dict[str, Pk
                 logging.debug(f'Removing {dep} from dependencies')
                 package.local_depends.remove(dep)
 
-    _pkgbuilds_cache.clear()
-    _pkgbuilds_cache.update(packages)
-    _pkgbuilds_scanned = True
     return packages
 
 
