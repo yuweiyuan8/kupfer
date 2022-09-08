@@ -16,7 +16,7 @@ from wrapper import check_programs_wrap, enforce_wrap
 
 from .build import build_packages_by_paths
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, init_pkgbuilds
-from .device import get_profile_device
+from .device import cmd_devices_list, get_profile_device
 
 
 def build(
@@ -48,6 +48,9 @@ def build(
 @click.group(name='packages')
 def cmd_packages():
     """Build and manage packages and PKGBUILDs"""
+
+
+cmd_packages.add_command(cmd_devices_list, 'devices')
 
 
 @cmd_packages.command(name='update')

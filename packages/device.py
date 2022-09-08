@@ -1,3 +1,4 @@
+import click
 import logging
 import os
 
@@ -29,6 +30,10 @@ class Device(DataClass):
     arch: Arch
     package: Pkgbuild
     deviceinfo: Optional[DeviceInfo]
+
+    def __repr__(self):
+        return (f'Device "{self.name}": "{self.package.description if self.package else ""}", '
+                f'Architecture: {self.arch}, package: {self.package.name if self.package else "??? PROBABLY A BUG!"}')
 
     def parse_deviceinfo(self, try_download: bool = True, lazy: bool = True):
         if not lazy or 'deviceinfo' not in self or self.deviceinfo is None:
@@ -83,7 +88,7 @@ def parse_device_pkg(pkgbuild: Pkgbuild) -> Device:
     prefix = 'device-'
     if name.startswith(prefix):
         name = name[len(prefix):]
-    return Device(name=name, arch=arch, package=pkgbuild)
+    return Device(name=name, arch=arch, package=pkgbuild, deviceinfo=None)
 
 
 _device_cache: dict[str, Device] = {}
@@ -148,3 +153,11 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
 def get_profile_device(profile_name: Optional[str] = None, hint_or_set_arch: bool = False):
     profile = config.enforce_profile_device_set(profile_name=profile_name, hint_or_set_arch=hint_or_set_arch)
     return get_device(profile.device)
+
+
+@click.command(name='list')
+def cmd_devices_list():
+    'list the available flavours and descriptions'
+    devices = get_devices()
+    for d in sorted(devices.keys()):
+        print(devices[d])
