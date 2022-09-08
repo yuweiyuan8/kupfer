@@ -34,15 +34,17 @@ class DataClass(Munch):
             type_hints = cls._type_hints
             if key in type_hints:
                 _classes = tuple[type](resolve_type_hint(type_hints[key]))
+                optional = type(None) in _classes
                 if issubclass(_classes[0], dict):
-                    assert isinstance(value, dict)
+                    assert isinstance(value, dict) or optional
                     target_class = _classes[0]
                     if target_class is dict:
                         target_class = Munch
                     if not isinstance(value, target_class):
-                        assert issubclass(target_class, Munch)
-                        # despite the above assert, mypy doesn't seem to understand target_class is a Munch here
-                        value = target_class.fromDict(value, validate=validate)  # type:ignore[attr-defined]
+                        if not (optional and value is None):
+                            assert issubclass(target_class, Munch)
+                            # despite the above assert, mypy doesn't seem to understand target_class is a Munch here
+                            value = target_class.fromDict(value, validate=validate)  # type:ignore[attr-defined]
                 # handle numerics
                 elif set(_classes).intersection([int, float]) and isinstance(value, str) and str not in _classes:
                     parsed_number = None
