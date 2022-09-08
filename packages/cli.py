@@ -83,6 +83,8 @@ def cmd_build(paths: list[str], force=False, arch: Optional[Arch] = None, rebuil
 @click.option('-B', '--no-build', is_flag=True, default=False, help="Don't try to build packages, just copy and install")
 def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bool = False):
     """Build packages, copy to the device via SSH and install them"""
+    if not paths:
+        raise Exception("No packages specified")
     arch = arch or get_profile_device(hint_or_set_arch=True).arch
     if not no_build:
         build(paths, False, arch=arch, try_download=True)
@@ -177,7 +179,7 @@ def cmd_check(paths):
                 return True
         return False
 
-    paths = list(paths)
+    paths = list(paths) or ['all']
     packages = filter_pkgbuilds(paths, allow_empty_results=False)
 
     for package in packages:

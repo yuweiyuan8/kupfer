@@ -388,8 +388,16 @@ def filter_pkgbuilds(
 ) -> Iterable[Pkgbuild]:
     if not (use_names or use_paths):
         raise Exception('Error: filter_packages instructed to match neither by names nor paths; impossible!')
+    paths = list(paths)
+    plural = 's' if len(paths) > 1 else ''
+    fields = []
+    if use_names:
+        fields.append('name' + plural)
+    if use_paths:
+        fields.append('path' + plural)
+    fields_err = ' or '.join(fields)
     if not allow_empty_results and not paths:
-        raise Exception("Can't search for packages: no query given")
+        raise Exception(f"Can't search for packages: no {fields_err} given")
     repo = repo or discover_pkgbuilds()
     if 'all' in paths:
         all_pkgs = list(repo.values())
@@ -412,5 +420,6 @@ def filter_pkgbuilds(
             result += [pkg]
 
     if not allow_empty_results and not result:
-        raise Exception('No packages matched by paths: ' + ', '.join([f'"{p}"' for p in paths]))
+
+        raise Exception(f'No packages matched by {fields_err}: ' + ', '.join([f'"{p}"' for p in paths]))
     return result
