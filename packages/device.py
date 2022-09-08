@@ -95,7 +95,7 @@ def get_devices(pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy: bool = Tr
     use_cache = _device_cache_populated and lazy
     if not use_cache:
         if not pkgbuilds:
-            pkgbuilds = discover_pkgbuilds(lazy=lazy)
+            pkgbuilds = discover_pkgbuilds(lazy=lazy, repositories=['device'])
         _device_cache.clear()
         for pkgbuild in pkgbuilds.values():
             if not (pkgbuild.repo == 'device' and check_devicepkg_name(pkgbuild.name, log_level=None)):
