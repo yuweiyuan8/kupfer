@@ -1,7 +1,7 @@
 import click
 import logging
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Iterable, Optional, Union
 
 from .scheme import Profile
 from .profile import PROFILE_EMPTY, PROFILE_DEFAULTS
@@ -23,9 +23,10 @@ def comma_str_to_list(s: str, default=None) -> list[str]:
 def prompt_config(
     text: str,
     default: Any,
-    field_type: type = str,
+    field_type: Union[type, click.Choice] = str,
     bold: bool = True,
     echo_changes: bool = True,
+    show_choices: bool = False,
 ) -> tuple[Any, bool]:
     """
     prompts for a new value for a config key. returns the result and a boolean that indicates
@@ -54,16 +55,28 @@ def prompt_config(
     if bold:
         text = click.style(text, bold=True)
 
-    result = click.prompt(text, type=field_type, default=default, value_proc=value_conv, show_default=True)  # type: ignore
+    result = click.prompt(
+        text,
+        type=field_type,  # type: ignore
+        default=default,
+        value_proc=value_conv,
+        show_default=True,
+        show_choices=show_choices,
+    )  # type: ignore
     changed = result != (original_default if field_type == list else default) and (true_or_zero(default) or true_or_zero(result))
     if changed and echo_changes:
         print(f'value changed: "{text}" = "{result}"')
     return result, changed
 
 
-def prompt_profile(name: str, create: bool = True, defaults: Union[Profile, dict] = {}) -> tuple[Profile, bool]:
+def prompt_profile(
+    name: str,
+    create: bool = True,
+    defaults: Union[Profile, dict] = {},
+    no_parse: bool = True,
+) -> tuple[Profile, bool]:
     """Prompts the user for every field in `defaults`. Set values to None for an empty profile."""
-
+    PARSEABLE_FIELDS = ['device', 'flavour']
     profile: Any = PROFILE_EMPTY | defaults
     # don't use get_profile() here because we need the sparse profile
     if name in config.file.profiles:
@@ -77,11 +90,47 @@ def prompt_profile(name: str, create: bool = True, defaults: Union[Profile, dict
     for key, current in profile.items():
         current = profile[key]
         text = f'{name}.{key}'
-        result, _changed = prompt_config(text=text, default=current, field_type=type(PROFILE_DEFAULTS[key]))  # type: ignore
+        if not no_parse and key in PARSEABLE_FIELDS:
+            parse_prompt = None
+            if key == 'device':
+                parse_prompt = prompt_profile_device
+            elif key == 'flavour':
+                parse_prompt = prompt_profile_flavour
+            else:
+                raise Exception(f'config: Unhanled parseable field {key}, this is a bug in kupferbootstrap.')
+            result, _changed = parse_prompt(current, name)  # type: ignore
+        else:
+            result, _changed = prompt_config(text=text, default=current, field_type=type(PROFILE_DEFAULTS[key]))  # type: ignore
         if _changed:
             profile[key] = result
             changed = True
     return profile, changed
+
+
+def prompt_choice(current: Optional[Any], key: str, choices: Iterable[Any], allow_none: bool = True, show_choices: bool = False) -> tuple[Any, bool]:
+    choices = list(choices) + ([''] if allow_none else [])
+    res, _ = prompt_config(text=key, default=current, field_type=click.Choice(choices), show_choices=show_choices)
+    if allow_none and res == '':
+        res = None
+    return res, res == current
+
+
+def prompt_profile_device(current: Optional[str], profile_name: str) -> tuple[str, bool]:
+    from packages.device import get_devices
+    devices = get_devices()
+    print(click.style("Pick your device!\nThese are the available devices:", bold=True))
+    for dev in sorted(devices.keys()):
+        print(devices[dev])
+    return prompt_choice(current, f'profiles.{profile_name}.device', devices.keys())
+
+
+def prompt_profile_flavour(current: Optional[str], profile_name: str) -> tuple[str, bool]:
+    from packages.flavour import get_flavours
+    flavours = get_flavours()
+    print(click.style("Pick your flavour!\nThese are the available flavours:", bold=True))
+    for f in sorted(flavours.keys()):
+        print(flavours[f])
+    return prompt_choice(current, f'profiles.{profile_name}.flavour', flavours.keys())
 
 
 def config_dot_name_get(name: str, config: dict[str, Any], prefix: str = '') -> Any:
@@ -138,11 +187,13 @@ def cmd_config():
 
 noninteractive_flag = click.option('-N', '--non-interactive', is_flag=True)
 noop_flag = click.option('--noop', '-n', help="Don't write changes to file", is_flag=True)
+noparse_flag = click.option('--no-parse', help="Don't search PKGBUILDs for devices and flavours", is_flag=True)
 
 
 @cmd_config.command(name='init')
 @noninteractive_flag
 @noop_flag
+@noparse_flag
 @click.option(
     '--sections',
     '-s',
@@ -152,7 +203,13 @@ noop_flag = click.option('--noop', '-n', help="Don't write changes to file", is_
     show_choices=True,
 )
 @click.pass_context
-def cmd_config_init(ctx, sections: list[str] = CONFIG_SECTIONS, non_interactive: bool = False, noop: bool = False):
+def cmd_config_init(
+    ctx,
+    sections: list[str] = CONFIG_SECTIONS,
+    non_interactive: bool = False,
+    noop: bool = False,
+    no_parse: bool = False,
+):
     """Initialize the config file"""
     if not non_interactive:
         results: dict[str, dict] = {}
@@ -173,7 +230,7 @@ def cmd_config_init(ctx, sections: list[str] = CONFIG_SECTIONS, non_interactive:
         if 'profiles' in sections:
             current_profile = 'default' if 'current' not in config.file.profiles else config.file.profiles.current
             new_current, _ = prompt_config('profiles.current', default=current_profile, field_type=str)
-            profile, changed = prompt_profile(new_current, create=True)
+            profile, changed = prompt_profile(new_current, create=True, no_parse=no_parse)
             config.update_profile(new_current, profile)
         if not noop:
             if not prompt_for_save(ctx):
@@ -188,9 +245,10 @@ def cmd_config_init(ctx, sections: list[str] = CONFIG_SECTIONS, non_interactive:
 @cmd_config.command(name='set')
 @noninteractive_flag
 @noop_flag
+@noparse_flag
 @click.argument('key_vals', nargs=-1)
 @click.pass_context
-def cmd_config_set(ctx, key_vals: list[str], non_interactive: bool = False, noop: bool = False):
+def cmd_config_set(ctx, key_vals: list[str], non_interactive: bool = False, noop: bool = False, no_parse: bool = False):
     """
     Set config entries. Pass entries as `key=value` pairs, with keys as dot-separated identifiers,
     like `build.clean_mode=false` or alternatively just keys to get prompted if run interactively.
@@ -245,16 +303,17 @@ def cmd_profile():
 @cmd_profile.command(name='init')
 @noninteractive_flag
 @noop_flag
+@noparse_flag
 @click.argument('name', required=True)
 @click.pass_context
-def cmd_profile_init(ctx, name: str, non_interactive: bool = False, noop: bool = False):
+def cmd_profile_init(ctx, name: str, non_interactive: bool = False, noop: bool = False, no_parse: bool = False):
     """Create or edit a profile"""
     profile = deepcopy(PROFILE_EMPTY)
     if name in config.file.profiles:
         profile |= config.file.profiles[name]
 
     if not non_interactive:
-        profile, _changed = prompt_profile(name, create=True)
+        profile, _changed = prompt_profile(name, create=True, no_parse=no_parse)
 
     config.update_profile(name, profile)
     if not noop:

@@ -39,6 +39,7 @@ def get_flavours(lazy: bool = True):
     global _flavours_cache, _flavours_discovered
     if lazy and _flavours_discovered:
         return _flavours_cache
+    logging.info("Searching PKGBUILDs for flavour packages")
     flavours: dict[str, Flavour] = {}
     pkgbuilds: dict[str, Pkgbuild] = discover_pkgbuilds(lazy=(lazy or not _flavours_discovered))
     for pkg in pkgbuilds.values():
