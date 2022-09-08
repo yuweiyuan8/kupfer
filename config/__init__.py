@@ -172,7 +172,7 @@ def cmd_config_init(ctx, sections: list[str] = CONFIG_SECTIONS, non_interactive:
         config.update(results)
         if 'profiles' in sections:
             current_profile = 'default' if 'current' not in config.file.profiles else config.file.profiles.current
-            new_current, _ = prompt_config('profile.current', default=current_profile, field_type=str)
+            new_current, _ = prompt_config('profiles.current', default=current_profile, field_type=str)
             profile, changed = prompt_profile(new_current, create=True)
             config.update_profile(new_current, profile)
         if not noop:

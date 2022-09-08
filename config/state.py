@@ -233,7 +233,8 @@ class ConfigStateHolder:
         self._profile_cache = resolve_profile(name=name, sparse_profiles=self.file.profiles, resolved=self._profile_cache)
         return self._profile_cache[name]
 
-    def enforce_profile_device_set(self, profile_name: Optional[str] = None, hint_or_set_arch: bool = False) -> Profile:
+    def _enforce_profile_field(self, field: str, profile_name: Optional[str] = None, hint_or_set_arch: bool = False) -> Profile:
+        # TODO: device
         profile_name = profile_name if profile_name is not None else self.file.profiles.current
         arch_hint = ''
         if not hint_or_set_arch:
@@ -243,19 +244,25 @@ class ConfigStateHolder:
                          'e.g. `kupferbootstrap packages build --arch x86_64`')
             if not self.is_loaded():
                 if not self.file_state.exception:
-                    raise Exception('Error enforcing/ config profile device: config hadnt even been loaded yet.\n'
+                    raise Exception(f'Error enforcing config profile {field}: config hadn\'t even been loaded yet.\n'
                                     'This is a bug in kupferbootstrap!')
-                raise Exception("Profile device couldn't be resolved because the config file couldn't be loaded.\n"
+                raise Exception(f"Profile {field} couldn't be resolved because the config file couldn't be loaded.\n"
                                 "If the config doesn't exist, try running `kupferbootstrap config init`.\n"
                                 f"Error: {self.file_state.exception}")
         if profile_name and profile_name not in self.file.profiles:
             raise Exception(f'Unknown profile "{profile_name}". Please run `kupferbootstrap config profile init`{arch_hint}')
         profile = self.get_profile(profile_name)
-        if not profile.device:
-            m = (f'Profile "{profile_name}" has no device configured.\n'
-                 f'Please run `kupferbootstrap config profile init device`{arch_hint}')
+        if field not in profile or not profile[field]:
+            m = (f'Profile "{profile_name}" has no {field.upper()} configured.\n'
+                 f'Please run `kupferbootstrap config profile init {field}`{arch_hint}')
             raise Exception(m)
         return profile
+
+    def enforce_profile_device_set(self, **kwargs) -> Profile:
+        return self._enforce_profile_field(field='device', **kwargs)
+
+    def enforce_profile_flavour_set(self, **kwargs) -> Profile:
+        return self._enforce_profile_field(field='flavour', **kwargs)
 
     def get_path(self, path_name: str) -> str:
         paths = self.file.paths

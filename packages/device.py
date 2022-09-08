@@ -146,5 +146,5 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
 
 
 def get_profile_device(profile_name: Optional[str] = None, hint_or_set_arch: bool = False):
-    profile = config.enforce_profile_device_set(profile_name, hint_or_set_arch=hint_or_set_arch)
+    profile = config.enforce_profile_device_set(profile_name=profile_name, hint_or_set_arch=hint_or_set_arch)
     return get_device(profile.device)
