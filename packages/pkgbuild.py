@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import click
+import json
 import logging
 import multiprocessing
 import os
@@ -11,11 +12,12 @@ from typing import Iterable, Optional
 
 from config import config, ConfigStateHolder
 from constants import REPOSITORIES
+from dataclass import DataClass
 from exec.cmd import run_cmd
-from constants import Arch, MAKEPKG_CMD
+from constants import Arch, MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE
 from distro.package import PackageInfo
 from logger import setup_logging
-from utils import git
+from utils import git, sha256sum
 from wrapper import check_programs_wrap
 
 
@@ -203,7 +205,22 @@ class SubPkgbuild(Pkgbuild):
         self.pkgbase.refresh_sources(lazy=lazy)
 
 
-def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] = None, sources_refreshed: bool = False) -> list[Pkgbuild]:
+class SrcinfoMetaFile(DataClass):
+
+    class SrcinfoMetaChecksums(DataClass):
+        PKGBUILD: str
+        SRCINFO: str
+
+    checksums: SrcinfoMetaChecksums
+    build_mode: str
+
+
+def parse_pkgbuild(
+    relative_pkg_dir: str,
+    _config: Optional[ConfigStateHolder] = None,
+    force_refresh_srcinfo: bool = False,
+    sources_refreshed: bool = False,
+) -> list[Pkgbuild]:
     """
     Since function may run in a different subprocess, we need to be passed the config via parameter
     """
@@ -215,27 +232,72 @@ def parse_pkgbuild(relative_pkg_dir: str, _config: Optional[ConfigStateHolder] =
     pkgbuilds_dir = config.get_path('pkgbuilds')
     pkgdir = os.path.join(pkgbuilds_dir, relative_pkg_dir)
     filename = os.path.join(pkgdir, 'PKGBUILD')
-    logging.debug(f"Parsing {filename}")
     mode = None
-    with open(filename, 'r') as file:
-        for line in file.read().split('\n'):
-            if line.startswith('_mode='):
-                mode = line.split('=')[1]
-                break
-    if mode not in ['host', 'cross']:
-        raise Exception((f'{relative_pkg_dir}/PKGBUILD has {"no" if mode is None else "an invalid"} mode configured') +
-                        (f': "{mode}"' if mode is not None else ''))
 
+    srcinfo_file = os.path.join(pkgdir, SRCINFO_FILE)
+    srcinfo_meta_file = os.path.join(pkgdir, SRCINFO_METADATA_FILE)
+    refresh = force_refresh_srcinfo or not os.path.exists(srcinfo_meta_file)
+    if not refresh and not os.path.exists(srcinfo_meta_file):
+        logging.debug(f"{relative_pkg_dir}: {SRCINFO_METADATA_FILE} doesn't exist, running makepkg --printsrcinfo")
+        refresh = True
+    if not refresh:
+        try:
+            with open(srcinfo_meta_file, 'r') as meta_fd:
+                metadata_raw = json.load(meta_fd)
+                metadata = SrcinfoMetaFile.fromDict(metadata_raw, validate=True)
+        except Exception as ex:
+            logging.debug(f"{relative_pkg_dir}: something went wrong parsing json from {srcinfo_meta_file},"
+                          f"running makepkg instead instead: {ex}")
+            refresh = True
+    # validate checksums
+    if not refresh:
+        assert metadata and metadata.checksums
+        for filename, checksum in metadata.checksums.items():
+            file_sum = sha256sum(os.path.join(pkgdir, filename))
+            if file_sum != checksum:
+                logging.debug(f"{relative_pkg_dir}: Checksums for {filename} don't match")
+                refresh = True
+                break
+        # checksums are valid!
+        logging.debug(f'{relative_pkg_dir}: srcinfo cache hit!')
+        mode = metadata.build_mode
+        with open(srcinfo_file, 'r') as srcinfo_fd:
+            lines = srcinfo_fd.read().split('\n')
+
+    # do the actual refresh
+    if refresh:
+        logging.debug(f"Parsing {filename}")
+        with open(filename, 'r') as file:
+            for line in file.read().split('\n'):
+                if line.startswith('_mode='):
+                    mode = line.split('=')[1]
+                    break
+        if mode not in ['host', 'cross']:
+            err = 'an invalid' if mode else 'no'
+            raise Exception(f'{relative_pkg_dir}/PKGBUILD has {err} mode configured' + (f": {repr(mode)}" if mode is not None else ""))
+
+        srcinfo_proc = run_cmd(
+            MAKEPKG_CMD + ['--printsrcinfo'],
+            cwd=pkgdir,
+            stdout=subprocess.PIPE,
+        )
+        assert (isinstance(srcinfo_proc, subprocess.CompletedProcess))
+        output = srcinfo_proc.stdout.decode('utf-8')
+        lines = output.split('\n')
+        with open(srcinfo_file, 'w') as srcinfo_fd:
+            srcinfo_fd.write(output)
+        checksums = {os.path.basename(p): sha256sum(p) for p in [filename, srcinfo_file]}
+        metadata = SrcinfoMetaFile.fromDict({
+            'build_mode': mode,
+            'checksums': checksums,
+        }, validate=True)
+        with open(srcinfo_meta_file, 'w') as meta_fd:
+            json.dump(metadata, meta_fd)
+
+    assert mode
     base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed)
     base_package.mode = mode
     base_package.repo = relative_pkg_dir.split('/')[0]
-    srcinfo = run_cmd(
-        MAKEPKG_CMD + ['--printsrcinfo'],
-        cwd=pkgdir,
-        stdout=subprocess.PIPE,
-    )
-    assert (isinstance(srcinfo, subprocess.CompletedProcess))
-    lines = srcinfo.stdout.decode('utf-8').split('\n')
 
     current: Pkgbuild = base_package
     multi_pkgs = False
@@ -286,11 +348,16 @@ _pkgbuilds_paths = dict[str, list[Pkgbuild]]()
 _pkgbuilds_scanned: bool = False
 
 
-def get_pkgbuild_by_path(relative_path: str, lazy: bool = True, _config: Optional[ConfigStateHolder] = None) -> list[Pkgbuild]:
+def get_pkgbuild_by_path(
+    relative_path: str,
+    force_refresh_srcinfo: bool = False,
+    lazy: bool = True,
+    _config: Optional[ConfigStateHolder] = None,
+) -> list[Pkgbuild]:
     global _pkgbuilds_cache, _pkgbuilds_paths
-    if lazy and relative_path in _pkgbuilds_paths:
+    if lazy and not force_refresh_srcinfo and relative_path in _pkgbuilds_paths:
         return _pkgbuilds_paths[relative_path]
-    parsed = parse_pkgbuild(relative_path, _config=_config)
+    parsed = parse_pkgbuild(relative_path, force_refresh_srcinfo=force_refresh_srcinfo, _config=_config)
     _pkgbuilds_paths[relative_path] = parsed
     for pkg in parsed:
         _pkgbuilds_cache[pkg.name] = pkg

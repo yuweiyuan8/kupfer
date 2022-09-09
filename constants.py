@@ -194,3 +194,6 @@ MAKEPKG_CMD = [
     '--ignorearch',
     '--needed',
 ]
+
+SRCINFO_FILE = 'SRCINFO'
+SRCINFO_METADATA_FILE = 'srcinfo_meta.json'
