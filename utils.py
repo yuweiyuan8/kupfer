@@ -1,5 +1,6 @@
 import atexit
 import grp
+import hashlib
 import logging
 import os
 import pwd
@@ -116,3 +117,14 @@ def read_files_from_tar(tar_file: str, files: Sequence[str]) -> Generator[tuple[
             fd = index.extractfile(index.getmember(path))
             assert fd
             yield path, fd
+
+
+# stackoverflow magic from https://stackoverflow.com/a/44873382
+def sha256sum(filename):
+    h = hashlib.sha256()
+    b = bytearray(128 * 1024)
+    mv = memoryview(b)
+    with open(filename, 'rb', buffering=0) as f:
+        while n := f.readinto(mv):
+            h.update(mv[:n])
+    return h.hexdigest()
