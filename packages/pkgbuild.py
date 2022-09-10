@@ -227,7 +227,7 @@ def parse_pkgbuild(
     global config
     if _config:
         config = _config
-    setup_logging(verbose=config.runtime.verbose, log_setup=False)  # different thread needs log setup.
+        setup_logging(verbose=config.runtime.verbose, log_setup=False)  # different subprocess needs log setup.
     logging.info(f"Parsing PKGBUILD for {relative_pkg_dir}")
     pkgbuilds_dir = config.get_path('pkgbuilds')
     pkgdir = os.path.join(pkgbuilds_dir, relative_pkg_dir)
@@ -240,6 +240,7 @@ def parse_pkgbuild(
     if not refresh and not os.path.exists(srcinfo_meta_file):
         logging.debug(f"{relative_pkg_dir}: {SRCINFO_METADATA_FILE} doesn't exist, running makepkg --printsrcinfo")
         refresh = True
+    # parse metadata (mostly checksums)
     if not refresh:
         try:
             with open(srcinfo_meta_file, 'r') as meta_fd:
@@ -405,8 +406,10 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
                     results += _pkgbuilds_paths[p]
                 else:
                     paths_filtered += [p]
-        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4)(
-            delayed(get_pkgbuild_by_path)(path, lazy=lazy, _config=config) for path in paths_filtered))
+        backend = 'threading'
+        pass_config = config if backend != 'threading' else None
+        chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4,
+                           backend=backend)(delayed(get_pkgbuild_by_path)(path, lazy=lazy, _config=pass_config) for path in paths_filtered))
     else:
         chunks = (get_pkgbuild_by_path(path, lazy=lazy) for path in paths)
 
