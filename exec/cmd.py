@@ -109,7 +109,7 @@ def run_cmd(
     cmd = env_cmd + wrapped_script
     if switch_user:
         cmd = generate_cmd_su(cmd, switch_user, elevation_method=elevation_method)
-    logging.debug(f'Running cmd: "{cmd}"')
+    logging.debug(f'Running cmd: "{cmd}"' + (f' (path: {repr(cwd)})' if cwd else ''))
     if attach_tty:
         return subprocess.call(cmd, **kwargs)
     else:
