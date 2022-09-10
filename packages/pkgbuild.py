@@ -397,15 +397,6 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
     results = []
     if parallel:
         paths_filtered = paths
-        if lazy:
-            # filter out cached packages as the caches don't cross process boundaries
-            paths_filtered = []
-            for p in paths:
-                if p in _pkgbuilds_paths:
-                    # use cache
-                    results += _pkgbuilds_paths[p]
-                else:
-                    paths_filtered += [p]
         backend = 'threading'
         pass_config = config if backend != 'threading' else None
         chunks = (Parallel(n_jobs=multiprocessing.cpu_count() * 4,
@@ -413,7 +404,8 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
     else:
         chunks = (get_pkgbuild_by_path(path, lazy=lazy) for path in paths)
 
-    _pkgbuilds_paths.clear()
+    if repositories is None:
+        _pkgbuilds_paths.clear()
     # one list of packages per path
     for pkglist in chunks:
         _pkgbuilds_paths[pkglist[0].path] = pkglist
@@ -426,28 +418,27 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
                 logging.warning(f'Overriding {packages[package.name]} with {package}')
             packages[name] = package
 
-    if not repositories:
+    if repositories is None:
         # partial scans (specific repos) don't count as truly scanned
         _pkgbuilds_cache.clear()
         _pkgbuilds_scanned = True
     _pkgbuilds_cache.update(packages)
 
-    packages = _pkgbuilds_cache  # we need to iterate over the entire cache in case partial scans happened
-
-    # This filters the deps to only include the ones that are provided in this repo
-    for package in packages.values():
+    # This filters local_depends to only include the ones that are provided by local PKGBUILDs
+    # we need to iterate over the entire cache in case partial scans happened
+    for package in _pkgbuilds_cache.values():
         package.local_depends = package.depends.copy()
         for dep in package.depends.copy():
-            found = dep in packages
-            for pkg in packages.values():
+            found = dep in _pkgbuilds_cache
+            for pkg in _pkgbuilds_cache.values():
                 if found:
                     break
                 if dep in pkg.names():
-                    logging.debug(f'Found {pkg.name} that provides {dep}')
+                    logging.debug(f'{package.path}: Found {pkg.name} that provides {dep}')
                     found = True
                     break
             if not found:
-                logging.debug(f'Removing {dep} from dependencies')
+                logging.debug(f'{package.path}: Removing {dep} from local dependencies')
                 package.local_depends.remove(dep)
 
     return packages
