@@ -1,24 +1,22 @@
 from __future__ import annotations
 
 import click
-import json
 import logging
 import multiprocessing
 import os
-import subprocess
 
 from joblib import Parallel, delayed
 from typing import Iterable, Optional
 
 from config import config, ConfigStateHolder
 from constants import REPOSITORIES
-from dataclass import DataClass
-from exec.cmd import run_cmd
-from constants import Arch, MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE
+from constants import Arch
 from distro.package import PackageInfo
 from logger import setup_logging
-from utils import git, sha256sum
+from utils import git
 from wrapper import check_programs_wrap
+
+from .srcinfo_cache import SrcinfoMetaFile
 
 
 def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
@@ -42,7 +40,7 @@ def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=F
             if interactive:
                 if not click.confirm('Would you like to try updating the PKGBUILDs repo?'):
                     return
-            result = git(['pull'], pkgbuilds_dir)
+            result = git(['pull'], dir=pkgbuilds_dir)
             if result.returncode != 0:
                 raise Exception('failed to update pkgbuilds')
 
@@ -205,16 +203,6 @@ class SubPkgbuild(Pkgbuild):
         self.pkgbase.refresh_sources(lazy=lazy)
 
 
-class SrcinfoMetaFile(DataClass):
-
-    class SrcinfoMetaChecksums(DataClass):
-        PKGBUILD: str
-        SRCINFO: str
-
-    checksums: SrcinfoMetaChecksums
-    build_mode: str
-
-
 def parse_pkgbuild(
     relative_pkg_dir: str,
     _config: Optional[ConfigStateHolder] = None,
@@ -228,74 +216,20 @@ def parse_pkgbuild(
     if _config:
         config = _config
         setup_logging(verbose=config.runtime.verbose, log_setup=False)  # different subprocess needs log setup.
-    logging.info(f"Parsing PKGBUILD for {relative_pkg_dir}")
-    pkgbuilds_dir = config.get_path('pkgbuilds')
-    pkgdir = os.path.join(pkgbuilds_dir, relative_pkg_dir)
-    filename = os.path.join(pkgdir, 'PKGBUILD')
-    mode = None
+    logging.info(f"Discovering PKGBUILD for {relative_pkg_dir}")
 
-    srcinfo_file = os.path.join(pkgdir, SRCINFO_FILE)
-    srcinfo_meta_file = os.path.join(pkgdir, SRCINFO_METADATA_FILE)
-    refresh = force_refresh_srcinfo or not os.path.exists(srcinfo_meta_file)
-    if not refresh and not os.path.exists(srcinfo_meta_file):
-        logging.debug(f"{relative_pkg_dir}: {SRCINFO_METADATA_FILE} doesn't exist, running makepkg --printsrcinfo")
-        refresh = True
-    # parse metadata (mostly checksums)
-    if not refresh:
-        try:
-            with open(srcinfo_meta_file, 'r') as meta_fd:
-                metadata_raw = json.load(meta_fd)
-                metadata = SrcinfoMetaFile.fromDict(metadata_raw, validate=True)
-        except Exception as ex:
-            logging.debug(f"{relative_pkg_dir}: something went wrong parsing json from {srcinfo_meta_file},"
-                          f"running makepkg instead instead: {ex}")
-            refresh = True
-    # validate checksums
-    if not refresh:
-        assert metadata and metadata.checksums
-        for filename, checksum in metadata.checksums.items():
-            file_sum = sha256sum(os.path.join(pkgdir, filename))
-            if file_sum != checksum:
-                logging.debug(f"{relative_pkg_dir}: Checksums for {filename} don't match")
-                refresh = True
-                break
-        # checksums are valid!
-        logging.debug(f'{relative_pkg_dir}: srcinfo cache hit!')
-        mode = metadata.build_mode
-        with open(srcinfo_file, 'r') as srcinfo_fd:
-            lines = srcinfo_fd.read().split('\n')
+    if force_refresh_srcinfo:
+        logging.info('force-refreshing SRCINFOs')
+    # parse SRCINFO cache metadata and get correct SRCINFO lines
+    srcinfo_cache, lines = SrcinfoMetaFile.handle_directory(relative_pkg_dir, force_refresh=force_refresh_srcinfo, write=True)
+    assert lines and srcinfo_cache
+    assert 'build_mode' in srcinfo_cache
+    mode = srcinfo_cache.build_mode
+    if mode not in ['host', 'cross']:
+        err = 'an invalid' if mode is not None else 'no'
+        err_end = f": {repr(mode)}" if mode is not None else "."
+        raise Exception(f'{relative_pkg_dir}/PKGBUILD has {err} mode configured{err_end}')
 
-    # do the actual refresh
-    if refresh:
-        logging.debug(f"Parsing {filename}")
-        with open(filename, 'r') as file:
-            for line in file.read().split('\n'):
-                if line.startswith('_mode='):
-                    mode = line.split('=')[1]
-                    break
-        if mode not in ['host', 'cross']:
-            err = 'an invalid' if mode else 'no'
-            raise Exception(f'{relative_pkg_dir}/PKGBUILD has {err} mode configured' + (f": {repr(mode)}" if mode is not None else ""))
-
-        srcinfo_proc = run_cmd(
-            MAKEPKG_CMD + ['--printsrcinfo'],
-            cwd=pkgdir,
-            stdout=subprocess.PIPE,
-        )
-        assert (isinstance(srcinfo_proc, subprocess.CompletedProcess))
-        output = srcinfo_proc.stdout.decode('utf-8')
-        lines = output.split('\n')
-        with open(srcinfo_file, 'w') as srcinfo_fd:
-            srcinfo_fd.write(output)
-        checksums = {os.path.basename(p): sha256sum(p) for p in [filename, srcinfo_file]}
-        metadata = SrcinfoMetaFile.fromDict({
-            'build_mode': mode,
-            'checksums': checksums,
-        }, validate=True)
-        with open(srcinfo_meta_file, 'w') as meta_fd:
-            json.dump(metadata, meta_fd)
-
-    assert mode
     base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed)
     base_package.mode = mode
     base_package.repo = relative_pkg_dir.split('/')[0]
@@ -392,7 +326,7 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
                 continue
             paths.append(p)
 
-    logging.info("Parsing PKGBUILDs")
+    logging.info(f"Discovering PKGBUILDs{f' in repositories: {repositories}' if repositories else ''}")
 
     results = []
     if parallel:
