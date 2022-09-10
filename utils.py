@@ -73,7 +73,7 @@ def check_findmnt(path: str):
     return result.stdout.decode().strip()
 
 
-def git(cmd: list[str], dir='.', capture_output=False, user: Optional[str] = None) -> subprocess.CompletedProcess:
+def git(cmd: list[str], dir: Optional[str] = None, capture_output=False, user: Optional[str] = None) -> subprocess.CompletedProcess:
     result = run_cmd(['git'] + cmd, cwd=dir, capture_output=capture_output, switch_user=user)
     assert isinstance(result, subprocess.CompletedProcess)
     return result
