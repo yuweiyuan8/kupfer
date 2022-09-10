@@ -1,4 +1,4 @@
 #!/bin/bash
 
 sudo -v
-python -m pytest --junit-xml=pytest-report.xml -v "$@" ./*/test_*.py
+python -m pytest -v --cov=. --cov-branch --cov-report=term "$@" ./*/test_*.py
