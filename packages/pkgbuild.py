@@ -74,6 +74,7 @@ class Pkgbuild(PackageInfo):
     pkgrel: str
     description: str
     sources_refreshed: bool
+    srcinfo_cache: Optional[SrcinfoMetaFile]
 
     def __init__(
         self,
@@ -84,6 +85,7 @@ class Pkgbuild(PackageInfo):
         replaces: list[str] = [],
         repo: Optional[str] = None,
         sources_refreshed: bool = False,
+        srcinfo_cache: Optional[SrcinfoMetaFile] = None,
     ) -> None:
         """
         Create new Pkgbuild representation for file located at `{relative_path}/PKGBUILD`.
@@ -103,6 +105,7 @@ class Pkgbuild(PackageInfo):
         self.pkgrel = ''
         self.description = ''
         self.sources_refreshed = sources_refreshed
+        self.srcinfo_cache = srcinfo_cache
 
     def __repr__(self):
         return ','.join([
@@ -191,6 +194,7 @@ class SubPkgbuild(Pkgbuild):
 
         self.name = name
         self.pkgbase = pkgbase
+        self.srcinfo_cache = pkgbase.srcinfo_cache
 
         self.sources_refreshed = False
         self.update(pkgbase)
@@ -230,7 +234,7 @@ def parse_pkgbuild(
         err_end = f": {repr(mode)}" if mode is not None else "."
         raise Exception(f'{relative_pkg_dir}/PKGBUILD has {err} mode configured{err_end}')
 
-    base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed)
+    base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed, srcinfo_cache=srcinfo_cache)
     base_package.mode = mode
     base_package.repo = relative_pkg_dir.split('/')[0]
 
