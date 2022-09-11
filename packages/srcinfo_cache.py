@@ -18,12 +18,9 @@ SRCINFO_CHECKSUM_FILES = ['PKGBUILD', SRCINFO_FILE]
 
 class SrcinfoMetaFile(DataClass):
 
-    class Checksums(DataClass):
-        PKGBUILD: str
-        SRCINFO: str
-
-    checksums: Checksums
+    checksums: dict[str, str]
     build_mode: Optional[str]
+    src_initialised: Optional[str]
 
     _relative_path: str
     _changed: bool
@@ -37,10 +34,11 @@ class SrcinfoMetaFile(DataClass):
             raise Exception(f"{relative_pkg_dir}: {SRCINFO_METADATA_FILE} doesn't exist")
         with open(srcinfo_meta_file, 'r') as meta_fd:
             metadata_raw = json.load(meta_fd)
-        return SrcinfoMetaFile.fromDict(metadata_raw | {
+        defaults = {'src_initialised': None}
+        return SrcinfoMetaFile.fromDict(defaults | metadata_raw | {
             '_relative_path': relative_pkg_dir,
             '_changed': False,
-        }, validate=True)
+        })
 
     @staticmethod
     def generate_new(relative_pkg_dir: str, write: bool = True) -> tuple[SrcinfoMetaFile, list[str]]:
@@ -50,7 +48,8 @@ class SrcinfoMetaFile(DataClass):
             '_changed': True,
             'build_mode': '',
             'checksums': {},
-        }, validate=True)
+            'src_initialised': None,
+        })
         return s, s.refresh_all()
 
     @staticmethod
@@ -84,7 +83,7 @@ class SrcinfoMetaFile(DataClass):
         if 'checksums' not in self:
             self['checksums'] = None
         checksums_old = self.checksums.copy()
-        checksums = self.Checksums({p: sha256sum(os.path.join(pkgdir, p)) for p in SRCINFO_CHECKSUM_FILES})
+        checksums = {p: sha256sum(os.path.join(pkgdir, p)) for p in SRCINFO_CHECKSUM_FILES}
         if self.checksums is None:
             self.checksums = checksums
         else:
