@@ -414,13 +414,18 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
         '--noprepare',
         '--skippgpcheck',
     ])
-    dir = os.path.join(config.get_path('pkgbuilds'), package.path)
     msg = "makepkg sources setup failed; retrying without --holdver"
 
-    logging.info(f'{package.path}: Setting up sources')
-    result = run_cmd(
+    logging.info(f'{package.path}: Getting build chroot for source setup')
+    # we need to use a chroot here because makepkg symlinks sources into src/ via an absolute path
+    dir = os.path.join(CHROOT_PATHS['pkgbuilds'], package.path)
+    assert config.runtime.arch
+    chroot = setup_build_chroot(config.runtime.arch)
+    logging.info(f'{package.path}: Setting up sources with makepkg')
+    result = chroot.run_cmd(
         f"{makepkg_setup} --holdver || ( echo '{package.path}: {msg}' ; {makepkg_setup} )",
         cwd=dir,
+        switch_user='kupfer',
     )
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
