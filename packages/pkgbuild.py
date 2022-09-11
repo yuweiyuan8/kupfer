@@ -180,11 +180,12 @@ class Pkgbase(Pkgbuild):
         if lazy and self.sources_refreshed:
             return
         parsed = parse_pkgbuild(self.path, sources_refreshed=True)
-        basepkgs = [p for p in parsed if isinstance(p, Pkgbase)]
-        if not len(basepkgs) == 1:
-            raise Exception(f"error refreshing {self.name}: wrong number of base packages found: {basepkgs}")
+        basepkg = parsed[0]
+        assert isinstance(basepkg, (Pkgbase, SubPkgbuild))
+        if isinstance(basepkg, SubPkgbuild):
+            basepkg = basepkg.pkgbase
         self.sources_refreshed = True
-        self.update(basepkgs[0])
+        self.update(basepkg)
 
 
 class SubPkgbuild(Pkgbuild):
