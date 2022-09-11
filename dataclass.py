@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from munch import Munch
 from typing import Optional, Union, Mapping, Any, get_type_hints, get_origin, get_args, Iterable
@@ -44,7 +46,8 @@ class DataClass(Munch):
                         if not (optional and value is None):
                             assert issubclass(target_class, Munch)
                             # despite the above assert, mypy doesn't seem to understand target_class is a Munch here
-                            value = target_class.fromDict(value, validate=validate)  # type:ignore[attr-defined]
+                            kwargs = {'validate': validate} if issubclass(target_class, DataClass) else {}
+                            value = target_class.fromDict(value, **kwargs)  # type:ignore[attr-defined]
                 # handle numerics
                 elif set(_classes).intersection([int, float]) and isinstance(value, str) and str not in _classes:
                     parsed_number = None
