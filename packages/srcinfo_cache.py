@@ -26,6 +26,7 @@ class SrcinfoMetaFile(DataClass):
     build_mode: Optional[str]
 
     _relative_path: str
+    _changed: bool
 
     @staticmethod
     def parse_existing(relative_pkg_dir: str) -> SrcinfoMetaFile:
@@ -35,13 +36,21 @@ class SrcinfoMetaFile(DataClass):
         if not os.path.exists(srcinfo_meta_file):
             raise Exception(f"{relative_pkg_dir}: {SRCINFO_METADATA_FILE} doesn't exist")
         with open(srcinfo_meta_file, 'r') as meta_fd:
-            metadata_raw = json.load(meta_fd) | {'_relative_path': relative_pkg_dir}
-        return SrcinfoMetaFile.fromDict(metadata_raw, validate=True)
+            metadata_raw = json.load(meta_fd)
+        return SrcinfoMetaFile.fromDict(metadata_raw | {
+            '_relative_path': relative_pkg_dir,
+            '_changed': False,
+        }, validate=True)
 
     @staticmethod
     def generate_new(relative_pkg_dir: str, write: bool = True) -> tuple[SrcinfoMetaFile, list[str]]:
         'Creates a new SrcinfoMetaFile object with checksums, creating a SRCINFO as necessary'
-        s = SrcinfoMetaFile({'_relative_path': relative_pkg_dir, 'build_mode': '', 'checksums': {}}, validate=True)
+        s = SrcinfoMetaFile({
+            '_relative_path': relative_pkg_dir,
+            '_changed': True,
+            'build_mode': '',
+            'checksums': {},
+        }, validate=True)
         return s, s.refresh_all()
 
     @staticmethod
@@ -72,12 +81,17 @@ class SrcinfoMetaFile(DataClass):
 
     def refresh_checksums(self):
         pkgdir = os.path.join(config.get_path('pkgbuilds'), self._relative_path)
+        if 'checksums' not in self:
+            self['checksums'] = None
+        checksums_old = self.checksums.copy()
         checksums = self.Checksums({p: sha256sum(os.path.join(pkgdir, p)) for p in SRCINFO_CHECKSUM_FILES})
-        if 'checksums' not in self or self.checksums is None:
-            self['checksums'] = checksums
+        if self.checksums is None:
+            self.checksums = checksums
         else:
             self.checksums.clear()
             self.checksums.update(checksums)
+        if checksums != checksums_old:
+            self._changed = True
 
     def refresh_build_mode(self):
         self['build_mode'] = None
