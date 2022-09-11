@@ -452,6 +452,7 @@ def build_package(
     foreign_arch = config.runtime.arch != arch
     deps = (list(set(package.depends) - set(package.names())))
     needs_rust = 'rust' in deps
+    logging.info(f"{package.path}: Preparing to build: getting native arch build chroot")
     build_root: BuildChroot
     target_chroot = setup_build_chroot(
         arch=arch,
@@ -459,14 +460,15 @@ def build_package(
         clean_chroot=clean_chroot,
     )
     assert config.runtime.arch
-    native_chroot = target_chroot if not foreign_arch else setup_build_chroot(
-        arch=config.runtime.arch,
-        extra_packages=['base-devel'] + CROSSDIRECT_PKGS,
-        clean_chroot=clean_chroot,
-    )
+    native_chroot = target_chroot
+    if foreign_arch:
+        logging.info(f"{package.path}: Preparing to build: getting {arch} build chroot")
+        native_chroot = setup_build_chroot(
+            arch=config.runtime.arch,
+            extra_packages=['base-devel'] + CROSSDIRECT_PKGS,
+            clean_chroot=clean_chroot,
+        )
     cross = foreign_arch and package.mode == 'cross' and enable_crosscompile
-
-    target_chroot.initialize()
 
     if cross:
         logging.info(f'Cross-compiling {package.path}')
