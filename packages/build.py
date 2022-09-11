@@ -309,6 +309,8 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
 
 
 def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: bool = False) -> bool:
+    setup_sources(package)
+
     missing = True
     filename = package.get_filename(arch)
     filename_stripped = strip_compression_extension(filename)
@@ -398,27 +400,35 @@ def setup_git_insecure_paths(chroot: BuildChroot, username: str = 'kupfer'):
     ).check_returncode()  # type: ignore[union-attr]
 
 
-def setup_sources(package: Pkgbuild, chroot: BuildChroot, makepkg_conf_path='/etc/makepkg.conf', switch_user: str = 'kupfer'):
-    makepkg_setup_args = [
-        '--config',
-        makepkg_conf_path,
-        '--nobuild',
-        '--holdver',
+def setup_sources(package: Pkgbuild, lazy: bool = True):
+    cache = package.srcinfo_cache
+    assert cache
+    # catch cache._changed: if the PKGBUILD changed whatsoever, that's an indicator the sources might be changed
+    if lazy and not cache._changed and cache.src_initialised and cache.src_initialised == cache.checksums['PKGBUILD']:
+        if cache.validate_checksums():
+            logging.debug(f"{package.path}: Sources already set up.")
+            return
+    makepkg_setup = ' '.join(MAKEPKG_CMD + [
         '--nodeps',
+        '--nobuild',
+        '--noprepare',
         '--skippgpcheck',
-    ]
+    ])
+    dir = os.path.join(config.get_path('pkgbuilds'), package.path)
+    msg = "makepkg sources setup failed; retrying without --holdver"
 
-    logging.info(f'Setting up sources for {package.path} in {chroot.name}')
-    setup_git_insecure_paths(chroot)
-    result = chroot.run_cmd(
-        MAKEPKG_CMD + makepkg_setup_args,
-        cwd=os.path.join(CHROOT_PATHS['pkgbuilds'], package.path),
-        inner_env=get_makepkg_env(chroot.arch),
-        switch_user=switch_user,
+    logging.info(f'{package.path}: Setting up sources')
+    result = run_cmd(
+        f"{makepkg_setup} --holdver || ( echo '{package.path}: {msg}' ; {makepkg_setup} )",
+        cwd=dir,
     )
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
-        raise Exception(f'Failed to check sources for {package.path}')
+        raise Exception(f'{package.path}: Failed to setup sources, exit code: {result.returncode}')
+    cache.refresh_all(write=False)
+    cache.src_initialised = cache.checksums['PKGBUILD']
+    cache.write()
+    package.refresh_sources()
 
 
 def build_package(
@@ -498,9 +508,8 @@ def build_package(
         build_root.mount_rust(user=build_user)
     setup_git_insecure_paths(build_root)
     makepkg_conf_absolute = os.path.join('/', makepkg_conf_path)
-    setup_sources(package, build_root, makepkg_conf_path=makepkg_conf_absolute)
 
-    build_cmd = f'makepkg --config {makepkg_conf_absolute} --skippgpcheck --needed --noconfirm --ignorearch {" ".join(makepkg_compile_opts)}'
+    build_cmd = MAKEPKG_CMD + ['--config', makepkg_conf_absolute, '--skippgpcheck'] + makepkg_compile_opts
     logging.debug(f'Building: Running {build_cmd}')
     result = build_root.run_cmd(
         build_cmd,
