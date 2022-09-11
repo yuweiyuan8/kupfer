@@ -308,8 +308,14 @@ def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> 
         return None
 
 
-def check_package_version_built(package: Pkgbuild, arch: Arch, try_download: bool = False) -> bool:
-    setup_sources(package)
+def check_package_version_built(
+    package: Pkgbuild,
+    arch: Arch,
+    try_download: bool = False,
+    refresh_sources: bool = False,
+) -> bool:
+    if refresh_sources:
+        setup_sources(package)
 
     missing = True
     filename = package.get_filename(arch)
@@ -555,6 +561,7 @@ def get_unbuilt_package_levels(
     force: bool = False,
     rebuild_dependants: bool = False,
     try_download: bool = False,
+    refresh_sources: bool = True,
 ) -> list[set[Pkgbuild]]:
     repo = repo or discover_pkgbuilds()
     dependants = set[Pkgbuild]()
@@ -568,7 +575,7 @@ def get_unbuilt_package_levels(
         level = set[Pkgbuild]()
         for package in level_packages:
             if ((force and package in packages) or (rebuild_dependants and package in dependants) or
-                    not check_package_version_built(package, arch, try_download)):
+                    not check_package_version_built(package, arch, try_download=try_download, refresh_sources=refresh_sources)):
                 level.add(package)
                 build_names.update(package.names())
         if level:
