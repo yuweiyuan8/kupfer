@@ -439,7 +439,10 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
     cache.refresh_all(write=False)
     cache.src_initialised = cache.checksums['PKGBUILD']
     cache.write()
+    old_version = package.version
     package.refresh_sources()
+    if package.version != old_version:
+        logging.info(f"{package.path}: version refreshed from {old_version} to {package.version}")
 
 
 def build_package(
