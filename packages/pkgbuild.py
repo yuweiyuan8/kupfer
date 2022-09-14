@@ -19,11 +19,11 @@ from wrapper import check_programs_wrap
 from .srcinfo_cache import SrcinfoMetaFile
 
 
-def clone_pkbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
+def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
     check_programs_wrap(['git'])
     git_dir = os.path.join(pkgbuilds_dir, '.git')
     if not os.path.exists(git_dir):
-        logging.info('Cloning branch {branch} from {repo}')
+        logging.info(f'Cloning branch {branch} from {repo_url}')
         result = git(['clone', '-b', branch, repo_url, pkgbuilds_dir])
         if result.returncode != 0:
             raise Exception('Error cloning pkgbuilds')
@@ -55,7 +55,7 @@ def init_pkgbuilds(interactive=False, lazy: bool = True):
     pkgbuilds_dir = config.get_path('pkgbuilds')
     repo_url = config.file.pkgbuilds.git_repo
     branch = config.file.pkgbuilds.git_branch
-    clone_pkbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
+    clone_pkgbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
     _pkgbuilds_initialised = True
 
 
