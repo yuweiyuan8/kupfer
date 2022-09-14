@@ -81,5 +81,7 @@ def get_profile_flavour(profile_name: Optional[str] = None) -> Flavour:
 def cmd_flavours_list():
     'list information about available flavours'
     flavours = get_flavours()
+    if not flavours:
+        raise Exception("No flavours found!")
     for f in flavours.values():
         print(f)

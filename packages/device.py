@@ -158,7 +158,9 @@ def get_profile_device(profile_name: Optional[str] = None, hint_or_set_arch: boo
 
 @click.command(name='list')
 def cmd_devices_list():
-    'list the available flavours and descriptions'
+    'list the available devices and descriptions'
     devices = get_devices()
+    if not devices:
+        raise Exception("No devices found!")
     for d in sorted(devices.keys()):
         print(devices[d])
