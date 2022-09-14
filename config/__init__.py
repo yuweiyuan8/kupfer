@@ -78,6 +78,8 @@ def prompt_profile(
     """Prompts the user for every field in `defaults`. Set values to None for an empty profile."""
     PARSEABLE_FIELDS = ['device', 'flavour']
     profile: Any = PROFILE_EMPTY | defaults
+    if name == 'current':
+        raise Exception("profile name 'current' not allowed")
     # don't use get_profile() here because we need the sparse profile
     if name in config.file.profiles:
         profile |= config.file.profiles[name]
@@ -304,11 +306,14 @@ def cmd_profile():
 @noninteractive_flag
 @noop_flag
 @noparse_flag
-@click.argument('name', required=True)
+@click.argument('name', required=False)
 @click.pass_context
-def cmd_profile_init(ctx, name: str, non_interactive: bool = False, noop: bool = False, no_parse: bool = False):
+def cmd_profile_init(ctx, name: Optional[str] = None, non_interactive: bool = False, noop: bool = False, no_parse: bool = False):
     """Create or edit a profile"""
     profile = deepcopy(PROFILE_EMPTY)
+    if name == 'current':
+        raise Exception("profile name 'current' not allowed")
+    name = name or config.file.profiles.current
     if name in config.file.profiles:
         profile |= config.file.profiles[name]
 
