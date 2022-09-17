@@ -7,7 +7,7 @@ import click
 import logging
 from signal import pause
 from subprocess import CompletedProcess
-from typing import Optional, Union
+from typing import Union
 
 from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_PACKAGES, FLAVOURS
@@ -17,6 +17,7 @@ from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
 from packages.build import build_enable_qemu_binfmt, build_packages_by_paths
 from packages.device import Device, get_profile_device
+from packages.flavour import Flavour, get_profile_flavour
 from ssh import copy_ssh_keys
 from wrapper import check_programs_wrap, wrap_if_foreign_arch
 
@@ -131,25 +132,21 @@ def losetup_destroy(loop_device):
     )
 
 
-def get_flavour(profile_name: Optional[str] = None) -> str:
-    config.enforce_config_loaded()
-    profile = config.get_profile(profile_name)
-
-    if not profile['flavour']:
-        raise Exception("Please set the flavour using 'kupferbootstrap config init ...'")
-
-    return profile['flavour']
-
-
 def get_device_name(device: Union[str, Device]) -> str:
     return device.name if isinstance(device, Device) else device
 
 
-def get_image_name(device: Union[str, Device], flavour, img_type='full') -> str:
-    return f'{get_device_name(device)}-{flavour}-{img_type}.img'
+def get_flavour_name(flavour: Union[str, Flavour]) -> str:
+    if isinstance(flavour, Flavour):
+        return flavour.name
+    return flavour
 
 
-def get_image_path(device: Union[str, Device], flavour, img_type='full') -> str:
+def get_image_name(device: Union[str, Device], flavour: Union[str, Flavour], img_type='full') -> str:
+    return f'{get_device_name(device)}-{get_flavour_name(flavour)}-{img_type}.img'
+
+
+def get_image_path(device: Union[str, Device], flavour: Union[str, Flavour], img_type='full') -> str:
     return os.path.join(config.get_path('images'), get_image_name(device, flavour, img_type))
 
 
@@ -302,15 +299,15 @@ def install_rootfs(
     rootfs_device: str,
     bootfs_device: str,
     device: Union[str, Device],
-    flavour: str,
+    flavour: Flavour,
     arch: Arch,
     packages: list[str],
     use_local_repos: bool,
     profile: Profile,
 ):
     user = profile['username'] or 'kupfer'
-    post_cmds = FLAVOURS[flavour].get('post_cmds', [])
-    chroot = get_device_chroot(device=get_device_name(device), flavour=flavour, arch=arch, packages=packages, use_local_repos=use_local_repos)
+    post_cmds = FLAVOURS[flavour.name].get('post_cmds', [])
+    chroot = get_device_chroot(device=get_device_name(device), flavour=flavour.name, arch=arch, packages=packages, use_local_repos=use_local_repos)
 
     mount_chroot(rootfs_device, bootfs_device, chroot)
 
@@ -394,10 +391,10 @@ def cmd_build(profile_name: str = None,
     arch = device.arch
     check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     profile: Profile = config.get_profile(profile_name)
-    flavour = get_flavour(profile_name)
+    flavour = get_profile_flavour(profile_name)
     size_extra_mb: int = int(profile["size_extra_mb"])
 
-    packages = BASE_PACKAGES + [device.package.name] + FLAVOURS[flavour]['packages'] + profile['pkgs_include']
+    packages = BASE_PACKAGES + [device.package.name, flavour.pkgbuild.name] + profile['pkgs_include']
 
     if arch != config.runtime.arch:
         build_enable_qemu_binfmt(arch)
@@ -411,9 +408,9 @@ def cmd_build(profile_name: str = None,
     if not sector_size:
         raise Exception(f"Device {device.name} has no flash_pagesize specified")
 
-    rootfs_size_mb = FLAVOURS[flavour].get('size', 2) * 1000
+    rootfs_size_mb = FLAVOURS[flavour.name].get('size', 2) * 1000
 
-    image_path = block_target or get_image_path(device, flavour)
+    image_path = block_target or get_image_path(device, flavour.name)
 
     makedir(os.path.dirname(image_path))
 
@@ -469,7 +466,7 @@ def cmd_inspect(profile: str = None, shell: bool = False):
     device = get_profile_device(profile)
     arch = device.arch
     wrap_if_foreign_arch(arch)
-    flavour = get_flavour(profile)
+    flavour = get_profile_flavour(profile).name
     deviceinfo = device.parse_deviceinfo()
     sector_size = deviceinfo.flash_pagesize
     if not sector_size:
