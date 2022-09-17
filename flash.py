@@ -2,12 +2,15 @@ import shutil
 import os
 import click
 
+from typing import Optional
+
 from constants import FLASH_PARTS, LOCATIONS
 from exec.cmd import run_root_cmd
 from exec.file import get_temp_dir
 from fastboot import fastboot_flash
-from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, losetup_destroy, dump_aboot, dump_lk2nd, dump_qhypstub, get_flavour, get_image_name, get_image_path
+from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, losetup_destroy, dump_aboot, dump_lk2nd, dump_qhypstub, get_image_name, get_image_path
 from packages.device import get_profile_device
+from packages.flavour import get_profile_flavour, profile_option
 from wrapper import enforce_wrap
 
 ABOOT = FLASH_PARTS['ABOOT']
@@ -17,13 +20,14 @@ ROOTFS = FLASH_PARTS['ROOTFS']
 
 
 @click.command(name='flash')
+@profile_option
 @click.argument('what', type=click.Choice(list(FLASH_PARTS.values())))
 @click.argument('location', type=str, required=False)
-def cmd_flash(what: str, location: str):
+def cmd_flash(what: str, location: str, profile: Optional[str] = None):
     """Flash a partition onto a device. `location` takes either a path to a block device or one of emmc, sdcard"""
     enforce_wrap()
-    device = get_profile_device()
-    flavour = get_flavour()
+    device = get_profile_device(profile)
+    flavour = get_profile_flavour(profile).name
     device_image_name = get_image_name(device, flavour)
     device_image_path = get_image_path(device, flavour)
 

@@ -10,6 +10,8 @@ from config import config
 
 from .pkgbuild import discover_pkgbuilds, get_pkgbuild_by_name, init_pkgbuilds, Pkgbuild
 
+profile_option = click.option('-p', '--profile', help="name of the profile to use", required=False, default=None)
+
 
 @dataclass
 class Flavour:
