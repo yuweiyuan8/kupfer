@@ -3,7 +3,7 @@
 import click
 import subprocess
 
-from traceback import format_exc as get_trace
+from traceback import format_exc, format_exception_only, format_tb
 from typing import Optional
 
 from logger import logging, setup_logging, verbose_option
@@ -40,9 +40,19 @@ def main():
         return cli(prog_name='kupferbootstrap')
     except Exception as ex:
         if config.runtime.verbose:
-            logging.fatal(get_trace())
+            msg = format_exc()
         else:
-            logging.fatal(ex)
+            tb_start = ''.join(format_tb(ex.__traceback__, limit=1)).strip('\n')
+            tb_end = ''.join(format_tb(ex.__traceback__, limit=-1)).strip('\n')
+            short_tb = [
+                'Traceback (most recent call last):',
+                tb_start,
+                '[...]',
+                tb_end,
+                format_exception_only(ex)[-1],  # type: ignore[arg-type]
+            ]
+            msg = '\n'.join(short_tb)
+        logging.fatal('\n' + msg)
         if config.runtime.error_shell:
             logging.info('Starting error shell. Type exit to quit.')
             subprocess.call('/bin/bash')
