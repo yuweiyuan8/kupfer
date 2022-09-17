@@ -314,22 +314,25 @@ def check_package_version_built(
     try_download: bool = False,
     refresh_sources: bool = False,
 ) -> bool:
+    logging.info(f"Checking if {package.name} is built")
+
     if refresh_sources:
         setup_sources(package)
 
     missing = True
     filename = package.get_filename(arch)
     filename_stripped = strip_compression_extension(filename)
+    if not filename_stripped.endswith('.pkg.tar'):
+        raise Exception(f'{package.name}: stripped filename has unknown extension. {filename}')
     logging.debug(f'Checking if {filename_stripped} is built')
+
     any_arch = filename_stripped.endswith('any.pkg.tar')
     if any_arch:
-        logging.debug("any-arch pkg detected")
+        logging.debug(f"{package.name}: any-arch pkg detected")
 
     init_prebuilts(arch)
     for ext in ['xz', 'zst']:
         file = os.path.join(config.get_package_dir(arch), package.repo, f'{filename_stripped}.{ext}')
-        if not filename_stripped.endswith('.pkg.tar'):
-            raise Exception(f'stripped filename has unknown extension. {filename}')
         if not os.path.exists(file):
             # look for 'any' arch packages in other repos
             if any_arch:
