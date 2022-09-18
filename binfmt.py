@@ -68,7 +68,7 @@ def register(arch: Arch):
 
     # Register in binfmt_misc
     logging.info(f"Registering qemu binfmt ({arch})")
-    run_root_cmd(["sh", "-c", f'echo "{code}" > {register} 2>/dev/null'])
+    run_root_cmd(f'echo "{code}" > {register} 2>/dev/null')
     if not is_registered(arch):
         logging.debug(f'binfmt line: {code}')
         raise Exception(f'Failed to register qemu-user for {arch} with binfmt_misc, {binfmt}/{info["name"]} not found')
@@ -82,4 +82,4 @@ def unregister(arch):
     if not os.path.exists(binfmt_file):
         return
     logging.info(f"Unregistering qemu binfmt ({arch})")
-    run_root_cmd(["sh", "-c", f"echo -1 > {binfmt_file}"])
+    run_root_cmd(f"echo -1 > {binfmt_file}")
