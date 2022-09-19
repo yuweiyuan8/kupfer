@@ -162,7 +162,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 
 @cmd_packages.command(name='list')
 def cmd_list():
-    enforce_wrap()
+    "List information about available source packages (PKGBUILDs)"
     logging.info('Discovering packages.')
     packages = discover_pkgbuilds()
     logging.info(f'Done! {len(packages)} Pkgbuilds:')
@@ -340,4 +340,4 @@ def check_arches_hint(path: str, required: str, provided: list[str]):
     if required == 'all':
         for arch in ARCHES:
             if arch not in provided:
-                logging.warning(f'Missing {arch} in arches list in {path}, because hint is `all`')
+                logging.warning(f'Missing {arch} in arches list in {path}, because _arches hint is `all`')
