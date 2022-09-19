@@ -10,7 +10,7 @@ from subprocess import CompletedProcess
 from typing import Union
 
 from chroot.device import DeviceChroot, get_device_chroot
-from constants import Arch, BASE_PACKAGES, FLAVOURS
+from constants import Arch, BASE_PACKAGES, FLAVOURS, POST_CMDS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
@@ -306,7 +306,6 @@ def install_rootfs(
     profile: Profile,
 ):
     user = profile['username'] or 'kupfer'
-    post_cmds = FLAVOURS[flavour.name].get('post_cmds', [])
     chroot = get_device_chroot(device=get_device_name(device), flavour=flavour.name, arch=arch, packages=packages, use_local_repos=use_local_repos)
 
     mount_chroot(rootfs_device, bootfs_device, chroot)
@@ -329,12 +328,13 @@ def install_rootfs(
             extra_repos=get_kupfer_https(arch).repos,
             in_chroot=True,
         ),
-        'etc/hostname': profile['hostname'],
+        'etc/hostname': profile['hostname'] or 'kupfer',
     }
     for target, content in files.items():
         root_write_file(os.path.join(chroot.path, target.lstrip('/')), content)
-    if post_cmds:
-        result = chroot.run_cmd(' && '.join(post_cmds))
+    if POST_CMDS:
+        logging.info("Running post-install CMDs")
+        result = chroot.run_cmd(' && '.join(POST_CMDS))
         assert isinstance(result, subprocess.CompletedProcess)
         if result.returncode != 0:
             raise Exception('Error running post_cmds')

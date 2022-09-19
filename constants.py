@@ -66,6 +66,9 @@ FLAVOURS: dict[str, Flavour] = {
     }
 }
 
+POST_CMDS = ['kupfer-config apply']
+
+
 REPOSITORIES = [
     'boot',
     'cross',
