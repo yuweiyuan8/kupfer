@@ -153,7 +153,7 @@ class SrcinfoMetaFile(DataClass):
 
     def toJSON(self) -> str:
         'Returns a json representation, with private keys that start with "_" filtered out'
-        return json.dumps({key: val for key, val in self.toDict().items() if not key.startswith('_')})
+        return json.dumps({key: val for key, val in self.toDict().items() if not key.startswith('_')}, indent=2)
 
     def write(self):
         'Write the filtered json representation to disk as srcinfo_meta.json'
