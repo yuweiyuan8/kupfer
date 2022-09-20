@@ -200,3 +200,5 @@ MAKEPKG_CMD = [
 
 SRCINFO_FILE = 'SRCINFO'
 SRCINFO_METADATA_FILE = 'srcinfo_meta.json'
+
+FLAVOUR_INFO_FILE = 'flavourinfo.json'
