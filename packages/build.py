@@ -462,7 +462,7 @@ def build_package(
     makepkg_conf_path = 'etc/makepkg.conf'
     repo_dir = repo_dir if repo_dir else config.get_path('pkgbuilds')
     foreign_arch = config.runtime.arch != arch
-    deps = (list(set(package.depends) - set(package.names())))
+    deps = (list(set(package.depends) - set(package.names()))) if not package.nodeps else []
     needs_rust = 'rust' in deps
     logging.info(f"{package.path}: Preparing to build: getting native arch build chroot")
     build_root: BuildChroot
@@ -491,12 +491,13 @@ def build_package(
             env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
             native_chroot.mount_ccache(user=build_user)
         logging.info('Setting up dependencies for cross-compilation')
-        # include crossdirect for ccache symlinks and qemu-user
-        results = native_chroot.try_install_packages(package.depends + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
-        res_crossdirect = results['crossdirect']
-        assert isinstance(res_crossdirect, subprocess.CompletedProcess)
-        if res_crossdirect.returncode != 0:
-            raise Exception('Unable to install crossdirect')
+        if not package.nodeps:
+            # include crossdirect for ccache symlinks and qemu-user
+            results = native_chroot.try_install_packages(deps + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
+            res_crossdirect = results['crossdirect']
+            assert isinstance(res_crossdirect, subprocess.CompletedProcess)
+            if res_crossdirect.returncode != 0:
+                raise Exception('Unable to install crossdirect')
         # mount foreign arch chroot inside native chroot
         chroot_relative = os.path.join(CHROOT_PATHS['chroots'], target_chroot.name)
         makepkg_path_absolute = native_chroot.write_makepkg_conf(target_arch=arch, cross_chroot_relative=chroot_relative, cross=True)
@@ -516,10 +517,11 @@ def build_package(
                 env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
                 deps += ['ccache']
             logging.debug(('Building for native arch. ' if not foreign_arch else '') + 'Skipping crossdirect.')
-        dep_install = target_chroot.try_install_packages(deps, allow_fail=False)
-        failed_deps = [name for name, res in dep_install.items() if res.returncode != 0]  # type: ignore[union-attr]
-        if failed_deps:
-            raise Exception(f'Dependencies failed to install: {failed_deps}')
+        if not package.nodeps:
+            dep_install = target_chroot.try_install_packages(deps, allow_fail=False)
+            failed_deps = [name for name, res in dep_install.items() if res.returncode != 0]  # type: ignore[union-attr]
+            if failed_deps:
+                raise Exception(f'Dependencies failed to install: {failed_deps}')
 
     if enable_ccache:
         build_root.mount_ccache(user=build_user)
