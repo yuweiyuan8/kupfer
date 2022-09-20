@@ -416,6 +416,7 @@ def filter_pkgbuilds(
             all_pkgs = [pkg for pkg in all_pkgs if set([arch, 'any']).intersection(pkg.arches)]
         return all_pkgs
     result = []
+    to_find = list(paths)
     for pkg in repo.values():
         comparison = set()
         if use_paths:
@@ -429,7 +430,13 @@ def filter_pkgbuilds(
                 logging.warn(f"Pkg {pkg.name} matches query {matches[0]} but isn't available for architecture {arch}: {pkg.arches}")
                 continue
             result += [pkg]
+            for m in matches:
+                to_find.remove(m)
 
-    if not allow_empty_results and not result:
-        raise Exception(f'No packages matched by {fields_err}: ' + ', '.join([f'"{p}"' for p in paths]))
+    if not allow_empty_results:
+        if not result:
+            raise Exception(f'No packages matched by {fields_err}: ' + ', '.join([f'"{p}"' for p in paths]))
+        if to_find:
+            raise Exception(f"No packagages matched by {fields_err}: " + ', '.join([f'"{p}"' for p in to_find]))
+
     return result
