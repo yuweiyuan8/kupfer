@@ -20,6 +20,7 @@ class SrcinfoMetaFile(DataClass):
 
     checksums: dict[str, str]
     build_mode: Optional[str]
+    build_nodeps: Optional[bool]
     src_initialised: Optional[str]
 
     _relative_path: str
@@ -47,6 +48,7 @@ class SrcinfoMetaFile(DataClass):
             '_relative_path': relative_pkg_dir,
             '_changed': True,
             'build_mode': '',
+            'build_nodeps': None,
             'checksums': {},
             'src_initialised': None,
         })
@@ -74,6 +76,10 @@ class SrcinfoMetaFile(DataClass):
         if not force_refresh:
             logging.debug(f'{metadata._relative_path}: srcinfo checksums match!')
             lines = lines or metadata.read_srcinfo_file()
+            for build_field in ['build_mode', 'build_nodeps']:
+                if build_field not in metadata:
+                    metadata.refresh_build_fields()
+                    break
         else:
             lines = metadata.refresh_all(write=write)
         return metadata, lines
@@ -92,14 +98,22 @@ class SrcinfoMetaFile(DataClass):
         if checksums != checksums_old:
             self._changed = True
 
-    def refresh_build_mode(self):
+    def refresh_build_fields(self):
         self['build_mode'] = None
+        self['build_nodeps'] = None
         with open(os.path.join(config.get_path('pkgbuilds'), self._relative_path, 'PKGBUILD'), 'r') as file:
             lines = file.read().split('\n')
         for line in lines:
-            if line.startswith('_mode='):
-                self.build_mode = line.split('=', 1)[1].strip("\"'")
-                return
+            if not line.startswith('_') or '=' not in line:
+                continue
+            key, val = line.split('=', 1)
+            val = val.strip("\"'")
+            if key == '_mode':
+                self.build_mode = val
+            elif key == '_nodeps':
+                self.build_nodeps = val.lower() == 'true'
+            else:
+                continue
 
     def refresh_srcinfo(self) -> list[str]:
         'Run `makepkg --printsrcinfo` to create an updated SRCINFO file and return the lines from it'
@@ -127,7 +141,7 @@ class SrcinfoMetaFile(DataClass):
     def refresh_all(self, write: bool = True) -> list[str]:
         lines = self.refresh_srcinfo()
         self.refresh_checksums()
-        self.refresh_build_mode()
+        self.refresh_build_fields()
         if write:
             self.write()
         return lines

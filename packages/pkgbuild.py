@@ -69,6 +69,7 @@ class Pkgbuild(PackageInfo):
     local_depends: list[str]
     repo: str
     mode: str
+    nodeps: bool
     path: str
     pkgver: str
     pkgrel: str
@@ -100,6 +101,7 @@ class Pkgbuild(PackageInfo):
         self.local_depends = []
         self.repo = repo or ''
         self.mode = ''
+        self.nodeps = False
         self.path = relative_path
         self.pkgver = ''
         self.pkgrel = ''
@@ -131,6 +133,7 @@ class Pkgbuild(PackageInfo):
         self.local_depends = list(pkg.local_depends)
         self.repo = pkg.repo
         self.mode = pkg.mode
+        self.nodeps = pkg.nodeps
         self.path = pkg.path
         self.pkgver = pkg.pkgver
         self.pkgrel = pkg.pkgrel
@@ -230,6 +233,8 @@ def parse_pkgbuild(
     assert lines and srcinfo_cache
     assert 'build_mode' in srcinfo_cache
     mode = srcinfo_cache.build_mode
+    assert 'build_nodeps' in srcinfo_cache
+    nodeps = srcinfo_cache.build_nodeps
     if mode not in ['host', 'cross']:
         err = 'an invalid' if mode is not None else 'no'
         err_end = f": {repr(mode)}" if mode is not None else "."
@@ -237,6 +242,7 @@ def parse_pkgbuild(
 
     base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed, srcinfo_cache=srcinfo_cache)
     base_package.mode = mode
+    base_package.nodeps = nodeps
     base_package.repo = relative_pkg_dir.split('/')[0]
 
     current: Pkgbuild = base_package
@@ -425,6 +431,5 @@ def filter_pkgbuilds(
             result += [pkg]
 
     if not allow_empty_results and not result:
-
         raise Exception(f'No packages matched by {fields_err}: ' + ', '.join([f'"{p}"' for p in paths]))
     return result
