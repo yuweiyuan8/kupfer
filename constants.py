@@ -1,5 +1,4 @@
 from typing_extensions import TypeAlias
-from typing import TypedDict
 
 FASTBOOT = 'fastboot'
 FLASH_PARTS = {
@@ -30,44 +29,7 @@ BASE_PACKAGES: list[str] = [
     'vim',
 ]
 
-
-class Flavour(TypedDict, total=False):
-    packages: list[str]
-    post_cmds: list[str]
-    size: int
-
-
-FLAVOURS: dict[str, Flavour] = {
-    'barebone': {
-        'packages': [],
-    },
-    'debug-shell': {
-        'packages': ['hook-debug-shell'],
-    },
-    'gnome': {
-        'packages': ['gnome', 'archlinux-appstream-data', 'gnome-software-packagekit-plugin'],
-        'post_cmds': ['systemctl enable gdm'],
-        'size': 8,
-    },
-    'phosh': {
-        'packages': [
-            'phosh',
-            'phosh-osk-stub',  # temporary replacement for 'squeekboard',
-            'gnome-control-center',
-            'gnome-software',
-            'gnome-software-packagekit-plugin',
-            'archlinux-appstream-data',
-            'gnome-initial-setup',
-            'kgx',
-            'iio-sensor-proxy',
-        ],
-        'post_cmds': ['systemctl enable phosh'],
-        'size': 5,
-    }
-}
-
 POST_CMDS = ['kupfer-config apply']
-
 
 REPOSITORIES = [
     'boot',
