@@ -60,6 +60,12 @@ cmd_packages.add_command(cmd_devices_list, 'devices')
 def cmd_update(non_interactive: bool = False):
     """Update PKGBUILDs git repo"""
     init_pkgbuilds(interactive=not non_interactive)
+    logging.info("Refreshing SRCINFO caches")
+    discover_pkgbuilds()
+
+
+# alias "update" to "init"
+cmd_packages.add_command(cmd_update, 'init')
 
 
 @cmd_packages.command(name='build')
