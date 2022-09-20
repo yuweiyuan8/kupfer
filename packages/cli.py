@@ -204,6 +204,7 @@ def cmd_check(paths):
         provided_arches = []
 
         mode_key = '_mode'
+        nodeps_key = '_nodeps'
         pkgbase_key = 'pkgbase'
         pkgname_key = 'pkgname'
         arches_key = '_arches'
@@ -213,6 +214,7 @@ def cmd_check(paths):
         sha256sums_key = 'sha256sums'
         required = {
             mode_key: True,
+            nodeps_key: False,
             pkgbase_key: False,
             pkgname_key: True,
             'pkgdesc': False,
@@ -237,107 +239,107 @@ def cmd_check(paths):
         pkgbuild_path = os.path.join(config.get_path('pkgbuilds'), package.path, 'PKGBUILD')
         with open(pkgbuild_path, 'r') as file:
             content = file.read()
-            if '\t' in content:
-                logging.fatal(f'\\t is not allowed in {pkgbuild_path}')
-                exit(1)
-            lines = content.split('\n')
-            if len(lines) == 0:
-                logging.fatal(f'Empty {pkgbuild_path}')
-                exit(1)
-            line_index = 0
-            key_index = 0
-            hold_key = False
-            key = ""
-            while True:
-                line = lines[line_index]
+        if '\t' in content:
+            logging.fatal(f'\\t is not allowed in {pkgbuild_path}')
+            exit(1)
+        lines = content.split('\n')
+        if len(lines) == 0:
+            logging.fatal(f'Empty {pkgbuild_path}')
+            exit(1)
+        line_index = 0
+        key_index = 0
+        hold_key = False
+        key = ""
+        while True:
+            line = lines[line_index]
 
-                if line.startswith('#'):
-                    line_index += 1
-                    continue
+            if line.startswith('#'):
+                line_index += 1
+                continue
 
-                if line.startswith('_') and not line.startswith(mode_key) and not line.startswith(arches_key) and not line.startswith(commit_key):
-                    line_index += 1
-                    continue
+            if line.startswith('_') and line.split('=', 1)[0] not in [mode_key, nodeps_key, arches_key, commit_key]:
+                line_index += 1
+                continue
 
-                formatted = True
-                next_key = False
-                next_line = False
-                reason = ""
+            formatted = True
+            next_key = False
+            next_line = False
+            reason = ""
 
-                if hold_key:
-                    next_line = True
-                else:
-                    if key_index < len(required):
-                        key = list(required)[key_index]
-                        if line.startswith(key):
-                            if key == pkgbase_key:
-                                required[pkgname_key] = False
-                            if key == source_key:
-                                required[sha256sums_key] = True
-                            next_key = True
-                            next_line = True
-                        elif key in required and not required[key]:
-                            next_key = True
+            if hold_key:
+                next_line = True
+            else:
+                if key_index < len(required):
+                    key = list(required)[key_index]
+                    if line.startswith(key):
+                        if key == pkgbase_key:
+                            required[pkgname_key] = False
+                        if key == source_key:
+                            required[sha256sums_key] = True
+                        next_key = True
+                        next_line = True
+                    elif key in required and not required[key]:
+                        next_key = True
 
-                if line == ')':
-                    hold_key = False
-                    next_key = True
+            if line == ')':
+                hold_key = False
+                next_key = True
 
-                if key == arches_key:
-                    required_arches = line.split('=')[1]
+            if key == arches_key:
+                required_arches = line.split('=')[1]
 
-                if line.endswith('=('):
-                    hold_key = True
+            if line.endswith('=('):
+                hold_key = True
 
-                if line.startswith('    ') or line == ')':
-                    next_line = True
+            if line.startswith('    ') or line == ')':
+                next_line = True
 
-                if line.startswith('  ') and not line.startswith('    '):
-                    formatted = False
-                    reason = 'Multiline variables should be indented with 4 spaces'
+            if line.startswith('  ') and not line.startswith('    '):
+                formatted = False
+                reason = 'Multiline variables should be indented with 4 spaces'
 
-                if '"' in line and not check_quoteworthy(line):
-                    formatted = False
-                    reason = 'Found literal " although no special character was found in the line to justify the usage of a literal "'
+            if '"' in line and not check_quoteworthy(line):
+                formatted = False
+                reason = 'Found literal " although no special character was found in the line to justify the usage of a literal "'
 
-                if "'" in line and not '"' in line:
-                    formatted = False
-                    reason = 'Found literal \' although either a literal " or no qoutes should be used'
+            if "'" in line and not '"' in line:
+                formatted = False
+                reason = 'Found literal \' although either a literal " or no qoutes should be used'
 
-                if ('=(' in line and ' ' in line and '"' not in line and not line.endswith('=(')) or (hold_key and line.endswith(')')):
-                    formatted = False
-                    reason = 'Multiple elements in a list need to be in separate lines'
+            if ('=(' in line and ' ' in line and '"' not in line and not line.endswith('=(')) or (hold_key and line.endswith(')')):
+                formatted = False
+                reason = 'Multiple elements in a list need to be in separate lines'
 
-                if formatted and not next_key and not next_line:
-                    if key_index == len(required):
-                        if lines[line_index] == '':
-                            break
-                        else:
-                            formatted = False
-                            reason = 'Expected final emtpy line after all variables'
+            if formatted and not next_key and not next_line:
+                if key_index == len(required):
+                    if lines[line_index] == '':
+                        break
                     else:
                         formatted = False
-                        reason = f'Expected to find "{key}"'
+                        reason = 'Expected final emtpy line after all variables'
+                else:
+                    formatted = False
+                    reason = f'Expected to find "{key}"'
 
-                if not formatted:
-                    logging.fatal(f'Formatting error in {pkgbuild_path}: Line {line_index+1}: "{line}"')
-                    if reason != "":
-                        logging.fatal(reason)
-                    exit(1)
+            if not formatted:
+                logging.fatal(f'Formatting error in {pkgbuild_path}: Line {line_index+1}: "{line}"')
+                if reason != "":
+                    logging.fatal(reason)
+                exit(1)
 
-                if key == arch_key:
-                    if line.endswith(')'):
-                        if line.startswith(f'{arch_key}=('):
-                            check_arches_hint(pkgbuild_path, required_arches, [line[6:-1]])
-                        else:
-                            check_arches_hint(pkgbuild_path, required_arches, provided_arches)
-                    elif line.startswith('    '):
-                        provided_arches.append(line[4:])
+            if key == arch_key:
+                if line.endswith(')'):
+                    if line.startswith(f'{arch_key}=('):
+                        check_arches_hint(pkgbuild_path, required_arches, [line[6:-1]])
+                    else:
+                        check_arches_hint(pkgbuild_path, required_arches, provided_arches)
+                elif line.startswith('    '):
+                    provided_arches.append(line[4:])
 
-                if next_key and not hold_key:
-                    key_index += 1
-                if next_line:
-                    line_index += 1
+            if next_key and not hold_key:
+                key_index += 1
+            if next_line:
+                line_index += 1
 
         logging.info(f'{package.path} nicely formatted!')
 
