@@ -10,7 +10,7 @@ from subprocess import CompletedProcess
 from typing import Union
 
 from chroot.device import DeviceChroot, get_device_chroot
-from constants import Arch, BASE_PACKAGES, FLAVOURS, POST_CMDS
+from constants import Arch, BASE_PACKAGES, POST_CMDS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
@@ -392,7 +392,7 @@ def cmd_build(profile_name: str = None,
     check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     profile: Profile = config.get_profile(profile_name)
     flavour = get_profile_flavour(profile_name)
-    size_extra_mb: int = int(profile["size_extra_mb"])
+    rootfs_size_mb = flavour.parse_flavourinfo().rootfs_size * 1000 + int(profile.size_extra_mb)
 
     packages = BASE_PACKAGES + [device.package.name, flavour.pkgbuild.name] + profile['pkgs_include']
 
@@ -408,14 +408,12 @@ def cmd_build(profile_name: str = None,
     if not sector_size:
         raise Exception(f"Device {device.name} has no flash_pagesize specified")
 
-    rootfs_size_mb = FLAVOURS[flavour.name].get('size', 2) * 1000
-
     image_path = block_target or get_image_path(device, flavour.name)
 
     makedir(os.path.dirname(image_path))
 
     logging.info(f'Creating new file at {image_path}')
-    create_img_file(image_path, f"{rootfs_size_mb + size_extra_mb}M")
+    create_img_file(image_path, f"{rootfs_size_mb}M")
 
     loop_device = losetup_rootfs_image(image_path, sector_size)
 
@@ -432,7 +430,7 @@ def cmd_build(profile_name: str = None,
     else:
         logging.info('Creating per-partition image files')
         boot_dev = create_img_file(get_image_path(device, flavour, 'boot'), IMG_FILE_BOOT_DEFAULT_SIZE)
-        root_dev = create_img_file(get_image_path(device, flavour, 'root'), f'{rootfs_size_mb + size_extra_mb - 200}M')
+        root_dev = create_img_file(get_image_path(device, flavour, 'root'), f'{rootfs_size_mb - 200}M')
 
     create_boot_fs(boot_dev, sector_size)
     create_root_fs(root_dev, sector_size)
