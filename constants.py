@@ -22,9 +22,12 @@ BOOT_STRATEGIES: dict[str, str] = {
     'bq-paella': FASTBOOT,
 }
 
-BASE_PACKAGES: list[str] = [
-    'base',
+BASE_LOCAL_PACKAGES: list[str] = [
     'base-kupfer',
+]
+
+BASE_PACKAGES: list[str] = BASE_LOCAL_PACKAGES + [
+    'base',
     'nano',
     'vim',
 ]
