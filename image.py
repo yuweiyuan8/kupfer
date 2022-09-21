@@ -10,12 +10,12 @@ from subprocess import CompletedProcess
 from typing import Union
 
 from chroot.device import DeviceChroot, get_device_chroot
-from constants import Arch, BASE_PACKAGES, POST_CMDS
+from constants import Arch, BASE_LOCAL_PACKAGES, BASE_PACKAGES, POST_CMDS
 from config import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
-from packages.build import build_enable_qemu_binfmt, build_packages_by_paths
+from packages.build import build_enable_qemu_binfmt, build_packages, filter_pkgbuilds
 from packages.device import Device, get_profile_device
 from packages.flavour import Flavour, get_profile_flavour
 from ssh import copy_ssh_keys
@@ -394,14 +394,19 @@ def cmd_build(profile_name: str = None,
     flavour = get_profile_flavour(profile_name)
     rootfs_size_mb = flavour.parse_flavourinfo().rootfs_size * 1000 + int(profile.size_extra_mb)
 
-    packages = BASE_PACKAGES + [device.package.name, flavour.pkgbuild.name] + profile['pkgs_include']
+    packages = BASE_LOCAL_PACKAGES + [device.package.name, flavour.pkgbuild.name]
+    packages_extra = BASE_PACKAGES + profile.pkgs_include
 
     if arch != config.runtime.arch:
         build_enable_qemu_binfmt(arch)
 
     if local_repos and build_pkgs:
         logging.info("Making sure all packages are built")
-        build_packages_by_paths(packages, arch, try_download=not no_download_pkgs)
+        # enforce that local base packages are built
+        pkgbuilds = set(filter_pkgbuilds(packages, arch=arch, allow_empty_results=False, use_paths=False))
+        # extra packages might be a mix of package names that are in our PKGBUILDs and packages from the base distro
+        pkgbuilds |= set(filter_pkgbuilds(packages_extra, arch=arch, allow_empty_results=True, use_paths=False))
+        build_packages(pkgbuilds, arch, try_download=not no_download_pkgs)
 
     deviceinfo = device.parse_deviceinfo()
     sector_size = deviceinfo.flash_pagesize
@@ -441,7 +446,7 @@ def cmd_build(profile_name: str = None,
         device,
         flavour,
         arch,
-        packages,
+        list(set(packages) | set(packages_extra)),
         local_repos,
         profile,
     )
