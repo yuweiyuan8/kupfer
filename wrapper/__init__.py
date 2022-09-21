@@ -29,7 +29,8 @@ def wrap(wrapper_type: str = None):
 
 
 def is_wrapped(wrapper_type: str = None):
-    return get_wrapper_impl(wrapper_type).is_wrapped()
+    wrapper_type = get_wrapper_type(wrapper_type)
+    return wrapper_type != 'none' and get_wrapper_impl(wrapper_type).is_wrapped()
 
 
 def enforce_wrap(no_wrapper=False):

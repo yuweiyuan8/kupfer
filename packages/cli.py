@@ -6,7 +6,7 @@ from glob import glob
 from typing import Iterable, Optional
 
 from config import config
-from constants import Arch, ARCHES, REPOSITORIES
+from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_FILE, SRCINFO_METADATA_FILE
 from exec.file import remove_file
 from distro.distro import get_kupfer_local
 from distro.package import LocalPackage
@@ -118,12 +118,22 @@ def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bo
                     alloc_tty=True).check_returncode()
 
 
+CLEAN_LOCATIONS = ['src', 'pkg', SRCINFO_FILE, SRCINFO_METADATA_FILE]
+
+
 @cmd_packages.command(name='clean')
 @click.option('-f', '--force', is_flag=True, default=False, help="Don't prompt for confirmation")
 @click.option('-n', '--noop', is_flag=True, default=False, help="Print what would be removed but dont execute")
-@click.argument('what', type=click.Choice(['all', 'src', 'pkg']), nargs=-1)
+@click.argument('what', type=click.Choice(['all', 'git', *CLEAN_LOCATIONS]), nargs=-1)
 def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = False):
-    """Remove files and directories not tracked in PKGBUILDs.git. Passing in an empty `what` defaults it to `['all']`"""
+    """
+    Clean temporary files from PKGBUILDs
+
+    Specifying no location defaults to the special value 'all', meaning all regular locations.
+
+    There is also the special value 'git' which uses git to clean everything.
+    Be careful with it, as it means re-downloading sources for your packages.
+    """
     if noop:
         logging.debug('Running in noop mode!')
     if force:
@@ -131,7 +141,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
     what = what or ['all']
     logging.debug(f'Clearing {what} from PKGBUILDs')
     pkgbuilds = config.get_path('pkgbuilds')
-    if 'all' in what:
+    if 'git' in what:
         check_programs_wrap(['git'])
         warning = "Really reset PKGBUILDs to git state completely?\nThis will erase any untracked changes to your PKGBUILDs directory."
         if not (noop or force or click.confirm(warning)):
@@ -147,11 +157,13 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
             logging.fatal('Failed to git clean')
             exit(1)
     else:
+        if 'all' in what:
+            what = CLEAN_LOCATIONS
         what = set(what)
         dirs = []
-        for loc in ['pkg', 'src']:
+        for loc in CLEAN_LOCATIONS:
             if loc in what:
-                logging.info(f'gathering {loc} directories')
+                logging.info(f'gathering {loc} instances')
                 dirs += glob(os.path.join(pkgbuilds, '*', '*', loc))
 
         dir_lines = '\n'.join(dirs)
@@ -162,8 +174,8 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
             if not click.confirm("Really remove all of these?", default=True):
                 return
 
-        for dir in dirs:
-            if not noop:
+        if not noop:
+            for dir in dirs:
                 remove_file(dir, recursive=True)
 
 
