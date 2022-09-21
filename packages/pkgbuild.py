@@ -325,6 +325,7 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
     if lazy and _pkgbuilds_scanned:
         logging.debug("Reusing cached pkgbuilds repo")
         return _pkgbuilds_cache.copy()
+    check_programs_wrap(['makepkg'])
     pkgbuilds_dir = config.get_path('pkgbuilds')
     packages: dict[str, Pkgbuild] = {}
     paths = []
