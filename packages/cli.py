@@ -27,11 +27,12 @@ def build(
     rebuild_dependants: bool = False,
     try_download: bool = False,
 ):
+    config.enforce_profile_device_set(hint_or_set_arch=True)
+    enforce_wrap()
     arch = arch or get_profile_device(hint_or_set_arch=True).arch
 
     if arch not in ARCHES:
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
-    config.enforce_config_loaded()
 
     return build_packages_by_paths(
         paths,
@@ -170,6 +171,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 def cmd_list():
     "List information about available source packages (PKGBUILDs)"
     logging.info('Discovering packages.')
+    check_programs_wrap(['makepkg', 'pacman'])
     packages = discover_pkgbuilds()
     logging.info(f'Done! {len(packages)} Pkgbuilds:')
     for p in set(packages.values()):
@@ -182,6 +184,7 @@ def cmd_list():
 @click.argument('paths', nargs=-1)
 def cmd_check(paths):
     """Check that specified PKGBUILDs are formatted correctly"""
+    check_programs_wrap(['makepkg'])
 
     def check_quoteworthy(s: str) -> bool:
         quoteworthy = ['"', "'", "$", " ", ";", "&", "<", ">", "*", "?"]
