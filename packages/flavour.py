@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from config import config
-from constants import FLAVOUR_INFO_FILE
+from constants import FLAVOUR_DESCRIPTION_PREFIX, FLAVOUR_INFO_FILE
 
 from .pkgbuild import discover_pkgbuilds, get_pkgbuild_by_name, init_pkgbuilds, Pkgbuild
 
@@ -19,6 +19,7 @@ profile_option = click.option('-p', '--profile', help="name of the profile to us
 @dataclass
 class FlavourInfo:
     rootfs_size: int  # rootfs size in GB
+    description: Optional[str]
 
     def __repr__(self):
         return f'rootfs_size: {self.rootfs_size}'
@@ -39,7 +40,11 @@ class Flavour:
         if name.endswith('-common'):
             raise Exception(f'Flavour package "{name}" ends with "-common": "{name}"')
         name = name[8:]  # split off 'flavour-'
-        return Flavour(name=name, pkgbuild=pkgbuild, description=pkgbuild.description, flavour_info=None)
+        description = pkgbuild.description
+        # cut off FLAVOUR_DESCRIPTION_PREFIX
+        if description.lower().startswith(FLAVOUR_DESCRIPTION_PREFIX.lower()):
+            description = description[len(FLAVOUR_DESCRIPTION_PREFIX):]
+        return Flavour(name=name, pkgbuild=pkgbuild, description=description.strip(), flavour_info=None)
 
     def __repr__(self):
         return f'Flavour "{self.name}": "{self.description}", package: {self.pkgbuild.name if self.pkgbuild else "??? PROBABLY A BUG!"}{f", {self.flavour_info}" if self.flavour_info else ""}'
@@ -51,12 +56,15 @@ class Flavour:
         if not os.path.exists(infopath):
             raise Exception(f"Error parsing flavour info for flavour {self.name}: file doesn't exist: {infopath}")
         try:
+            defaults = {'description': None}
             with open(infopath, 'r') as fd:
                 infodict = json.load(fd)
-            i = FlavourInfo(**infodict)
+            i = FlavourInfo(**(defaults | infodict))
         except Exception as ex:
             raise Exception(f"Error parsing {FLAVOUR_INFO_FILE} for flavour {self.name}: {ex}")
         self.flavour_info = i
+        if i.description:
+            self.description = i.description
         return i
 
 
@@ -112,5 +120,10 @@ def cmd_flavours_list():
     flavours = get_flavours()
     if not flavours:
         raise Exception("No flavours found!")
-    for f in flavours.values():
+    for name in sorted(flavours.keys()):
+        f = flavours[name]
+        try:
+            f.parse_flavourinfo()
+        except:
+            pass
         print(f)
