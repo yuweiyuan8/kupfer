@@ -170,14 +170,17 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 @cmd_packages.command(name='list')
 def cmd_list():
     "List information about available source packages (PKGBUILDs)"
-    logging.info('Discovering packages.')
+    pkgdir = os.path.join(config.get_path('pkgbuilds'), REPOSITORIES[0])
+    if not os.path.exists(pkgdir):
+        raise Exception(f"PKGBUILDs seem not to be initialised yet: {pkgdir} doesn't exist!\n"
+                        f"Try running `kupferbootstrap packages init` first!")
     check_programs_wrap(['makepkg', 'pacman'])
     packages = discover_pkgbuilds()
     logging.info(f'Done! {len(packages)} Pkgbuilds:')
-    for p in set(packages.values()):
-        print(
-            f'name: {p.name}; ver: {p.version}; provides: {p.provides}; replaces: {p.replaces}; local_depends: {p.local_depends}; depends: {p.depends}'
-        )
+    for name in sorted(packages.keys()):
+        p = packages[name]
+        print(f'name: {p.name}; ver: {p.version}; provides: {p.provides}; replaces: {p.replaces};'
+              f'local_depends: {p.local_depends}; depends: {p.depends}')
 
 
 @cmd_packages.command(name='check')
