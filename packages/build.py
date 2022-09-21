@@ -8,7 +8,7 @@ from copy import deepcopy
 from urllib.error import HTTPError
 from typing import Iterable, Iterator, Optional
 
-from binfmt import register as binfmt_register, QEMU_ARCHES
+from binfmt import register as binfmt_register
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config import config
 from exec.cmd import run_cmd, run_root_cmd
@@ -16,7 +16,7 @@ from exec.file import makedir, remove_file, symlink
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import get_kupfer_https, get_kupfer_local
 from distro.package import RemotePackage
-from wrapper import check_programs_wrap, wrap_if_foreign_arch
+from wrapper import check_programs_wrap, is_wrapped
 
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbuild
 
@@ -381,7 +381,6 @@ def setup_build_chroot(
 ) -> BuildChroot:
     assert config.runtime.arch
     if arch != config.runtime.arch:
-        wrap_if_foreign_arch(arch)
         build_enable_qemu_binfmt(arch)
     init_prebuilts(arch)
     chroot = get_build_chroot(arch, add_kupfer_repos=add_kupfer_repos)
@@ -683,7 +682,7 @@ def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = N
     assert native
     if arch == native:
         return
-    check_programs_wrap([f'qemu-{QEMU_ARCHES[arch]}-static', 'pacman', 'makepkg'])
+    check_programs_wrap(['pacman', 'makepkg', 'pacstrap'])
     # build qemu-user, binfmt, crossdirect
     build_packages_by_paths(
         CROSSDIRECT_PKGS,
@@ -694,9 +693,10 @@ def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = N
         enable_crossdirect=False,
         enable_ccache=False,
     )
-    crossrepo = get_kupfer_local(native, in_chroot=False, scan=True).repos['cross'].packages
-    pkgfiles = [os.path.join(crossrepo[pkg].resolved_url.split('file://')[1]) for pkg in QEMU_BINFMT_PKGS]  # type: ignore
-    run_root_cmd(['pacman', '-U', '--noconfirm', '--needed'] + pkgfiles)
+    if is_wrapped():
+        crossrepo = get_kupfer_local(native, in_chroot=False, scan=True).repos['cross'].packages
+        pkgfiles = [os.path.join(crossrepo[pkg].resolved_url.split('file://')[1]) for pkg in QEMU_BINFMT_PKGS]  # type: ignore
+        run_root_cmd(['pacman', '-U', '--noconfirm', '--needed'] + pkgfiles)
     if arch != native:
         binfmt_register(arch)
     _qemu_enabled[arch] = True
