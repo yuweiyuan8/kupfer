@@ -19,7 +19,7 @@ from packages.build import build_enable_qemu_binfmt, build_packages, filter_pkgb
 from packages.device import Device, get_profile_device
 from packages.flavour import Flavour, get_profile_flavour
 from ssh import copy_ssh_keys
-from wrapper import check_programs_wrap, wrap_if_foreign_arch
+from wrapper import enforce_wrap
 
 # image files need to be slightly smaller than partitions to fit
 IMG_FILE_ROOT_DEFAULT_SIZE = "1800M"
@@ -387,9 +387,13 @@ def cmd_build(profile_name: str = None,
 
     Unless overriden, required packages will be built or preferably downloaded from HTTPS repos.
     """
+
+    config.enforce_profile_device_set()
+    config.enforce_profile_flavour_set()
+    enforce_wrap()
     device = get_profile_device(profile_name)
     arch = device.arch
-    check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
+    # check_programs_wrap(['makepkg', 'pacman', 'pacstrap'])
     profile: Profile = config.get_profile(profile_name)
     flavour = get_profile_flavour(profile_name)
     rootfs_size_mb = flavour.parse_flavourinfo().rootfs_size * 1000 + int(profile.size_extra_mb)
@@ -466,9 +470,11 @@ def cmd_build(profile_name: str = None,
 @click.argument('profile', required=False)
 def cmd_inspect(profile: str = None, shell: bool = False):
     """Open a shell in a device image"""
+    config.enforce_profile_device_set()
+    config.enforce_profile_flavour_set()
+    enforce_wrap()
     device = get_profile_device(profile)
     arch = device.arch
-    wrap_if_foreign_arch(arch)
     flavour = get_profile_flavour(profile).name
     deviceinfo = device.parse_deviceinfo()
     sector_size = deviceinfo.flash_pagesize
