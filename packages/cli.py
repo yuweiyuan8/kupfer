@@ -169,7 +169,7 @@ def cmd_clean(what: Iterable[str] = ['all'], force: bool = False, noop: bool = F
 
         dir_lines = '\n'.join(dirs)
         verb = 'Would remove' if noop else 'Removing'
-        logging.info(verb + ' directories:\n' + dir_lines)
+        logging.info(verb + ':\n' + dir_lines)
 
         if not (noop or force):
             if not click.confirm("Really remove all of these?", default=True):
