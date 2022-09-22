@@ -33,9 +33,12 @@ def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=
         if current_branch != branch:
             logging.warning(f'pkgbuilds repository is on the wrong branch: {current_branch}, requested: {branch}')
             if interactive and click.confirm('Would you like to switch branches?', default=False):
+                result = git(['remote', 'update'], dir=pkgbuilds_dir)
+                if result.returncode != 0:
+                    raise Exception('failed updating PKGBUILDs branches')
                 result = git(['switch', branch], dir=pkgbuilds_dir)
                 if result.returncode != 0:
-                    raise Exception('failed switching branches')
+                    raise Exception('failed switching PKGBUILDs branches')
         if update:
             if interactive:
                 if not click.confirm('Would you like to try updating the PKGBUILDs repo?'):
