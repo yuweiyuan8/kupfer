@@ -79,6 +79,11 @@ def git(cmd: list[str], dir: Optional[str] = None, capture_output=False, user: O
     return result
 
 
+def git_get_branch(path) -> str:
+    result = git(['branch', '--show-current'], dir=path, capture_output=True)
+    return result.stdout.decode().strip()
+
+
 def log_or_exception(raise_exception: bool, msg: str, exc_class=Exception, log_level=logging.WARNING):
     if raise_exception:
         raise exc_class(msg)

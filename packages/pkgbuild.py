@@ -13,7 +13,7 @@ from constants import REPOSITORIES
 from constants import Arch
 from distro.package import PackageInfo
 from logger import setup_logging
-from utils import git
+from utils import git, git_get_branch
 from wrapper import check_programs_wrap
 
 from .srcinfo_cache import SrcinfoMetaFile
@@ -28,8 +28,7 @@ def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=
         if result.returncode != 0:
             raise Exception('Error cloning pkgbuilds')
     else:
-        result = git(['--git-dir', git_dir, 'branch', '--show-current'], capture_output=True)
-        current_branch = result.stdout.decode().strip()
+        current_branch = git_get_branch(pkgbuilds_dir)
         if current_branch != branch:
             logging.warning(f'pkgbuilds repository is on the wrong branch: {current_branch}, requested: {branch}')
             if interactive and click.confirm('Would you like to switch branches?', default=False):
