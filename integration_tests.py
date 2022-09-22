@@ -23,21 +23,23 @@ def ctx() -> click.Context:
         if not tempdir:
             tempdir = get_temp_dir()
         config.file.paths.update(CONFIG_DEFAULTS.paths | {'cache_dir': tempdir})
-        print(f'cache_dir: {config.file.paths.cache_dir}')
+    print(f'cache_dir: {config.file.paths.cache_dir}')
     return click.Context(click.Command('integration_tests'))
 
 
 def test_packages_update(ctx: click.Context):
     kbs_branch = git_get_branch(config.runtime.script_source_dir)
+    pkgbuilds_path = config.get_path('pkgbuilds')
     for branch, may_fail in {'main': False, 'dev': False, kbs_branch: True}.items():
         config.file.pkgbuilds.git_branch = branch
         try:
-            ctx.invoke(cmd_update, non_interactive=True)
-            print("WOULD CTX INVOKE UPDATE HERE")
+            ctx.invoke(cmd_update, non_interactive=True, switch_branch=True)
         except Exception as ex:
+            print(f'may_fail: {may_fail}; Exception: {ex}')
             if not may_fail:
-                print(f'Exception: {ex}')
-            assert may_fail
+                raise ex
+            continue
+        assert git_get_branch(pkgbuilds_path) == branch
 
 
 def test_packages_clean(ctx: click.Context):
