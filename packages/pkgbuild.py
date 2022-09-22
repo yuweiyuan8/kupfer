@@ -19,7 +19,7 @@ from wrapper import check_programs_wrap
 from .srcinfo_cache import SrcinfoMetaFile
 
 
-def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True):
+def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True, switch_branch: bool = False):
     check_programs_wrap(['git'])
     git_dir = os.path.join(pkgbuilds_dir, '.git')
     if not os.path.exists(git_dir):
@@ -31,13 +31,14 @@ def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=
         current_branch = git_get_branch(pkgbuilds_dir)
         if current_branch != branch:
             logging.warning(f'pkgbuilds repository is on the wrong branch: {current_branch}, requested: {branch}')
-            if interactive and click.confirm('Would you like to switch branches?', default=False):
+            if switch_branch or (interactive and click.confirm('Would you like to switch branches?', default=False)):
                 result = git(['remote', 'update'], dir=pkgbuilds_dir)
                 if result.returncode != 0:
                     raise Exception('failed updating PKGBUILDs branches')
                 result = git(['switch', branch], dir=pkgbuilds_dir)
                 if result.returncode != 0:
                     raise Exception('failed switching PKGBUILDs branches')
+
         if update:
             if interactive:
                 if not click.confirm('Would you like to try updating the PKGBUILDs repo?'):
@@ -50,14 +51,14 @@ def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=
 _pkgbuilds_initialised: bool = False
 
 
-def init_pkgbuilds(interactive=False, lazy: bool = True):
+def init_pkgbuilds(interactive=False, lazy: bool = True, update: bool = False, switch_branch: bool = False):
     global _pkgbuilds_initialised
     if lazy and _pkgbuilds_initialised:
         return
     pkgbuilds_dir = config.get_path('pkgbuilds')
     repo_url = config.file.pkgbuilds.git_repo
     branch = config.file.pkgbuilds.git_branch
-    clone_pkgbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=False)
+    clone_pkgbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=update, switch_branch=switch_branch)
     _pkgbuilds_initialised = True
 
 

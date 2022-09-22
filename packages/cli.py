@@ -58,11 +58,12 @@ cmd_packages.add_command(cmd_devices_list, 'devices')
 
 @cmd_packages.command(name='update')
 @click.option('--non-interactive', is_flag=True)
-def cmd_update(non_interactive: bool = False):
+@click.option('--switch-branch', is_flag=True, help="Force the branch to be corrected even in non-interactive mode")
+def cmd_update(non_interactive: bool = False, switch_branch: bool = False):
     """Update PKGBUILDs git repo"""
-    init_pkgbuilds(interactive=not non_interactive)
+    init_pkgbuilds(interactive=not non_interactive, lazy=False, update=True, switch_branch=switch_branch)
     logging.info("Refreshing SRCINFO caches")
-    discover_pkgbuilds()
+    discover_pkgbuilds(lazy=False)
 
 
 # alias "update" to "init"
