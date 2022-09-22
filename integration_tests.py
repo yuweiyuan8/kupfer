@@ -28,9 +28,15 @@ def ctx() -> click.Context:
 
 
 def test_packages_update(ctx: click.Context):
-    kbs_branch = git_get_branch(config.runtime.script_source_dir)
     pkgbuilds_path = config.get_path('pkgbuilds')
-    for branch, may_fail in {'main': False, 'dev': False, kbs_branch: True}.items():
+    kbs_branch = git_get_branch(config.runtime.script_source_dir)
+    # Gitlab CI integration: the CI checks out a detached commit, branch comes back empty.
+    if not kbs_branch and os.environ.get('CI', 'false') == 'true':
+        kbs_branch = os.environ.get('CI_COMMIT_BRANCH', '')
+    branches: dict[str, bool] = {'main': False, 'dev': False}
+    if kbs_branch:
+        branches[kbs_branch] = True
+    for branch, may_fail in branches.items():
         config.file.pkgbuilds.git_branch = branch
         try:
             ctx.invoke(cmd_update, non_interactive=True, switch_branch=True)
