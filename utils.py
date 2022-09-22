@@ -73,16 +73,24 @@ def check_findmnt(path: str):
     return result.stdout.decode().strip()
 
 
-def git(cmd: list[str], dir: Optional[str] = None, capture_output=False, user: Optional[str] = None) -> subprocess.CompletedProcess:
-    result = run_cmd(['git'] + cmd, cwd=dir, capture_output=capture_output, switch_user=user)
+def git(
+    cmd: list[str],
+    dir: Optional[str] = None,
+    use_git_dir: bool = False,
+    git_dir: str = './.git',
+    capture_output=False,
+    user: Optional[str] = None,
+) -> subprocess.CompletedProcess:
+    dirarg = [f'--git-dir={git_dir}'] if use_git_dir else []
+    result = run_cmd(['git', *dirarg] + cmd, cwd=dir, capture_output=capture_output, switch_user=user)
     assert isinstance(result, subprocess.CompletedProcess)
     return result
 
 
-def git_get_branch(path) -> str:
-    result = git(['branch', '--show-current'], dir=path, capture_output=True)
+def git_get_branch(path, use_git_dir: bool = True, git_dir='./.git') -> str:
+    result = git(['branch', '--show-current'], dir=path, use_git_dir=True, git_dir=git_dir, capture_output=True)
     if result.returncode:
-        raise Exception(f'Error getting git branch for {path}')
+        raise Exception(f'Error getting git branch for {path}: {result.stderr}')
     return result.stdout.decode().strip()
 
 
