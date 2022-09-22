@@ -81,6 +81,8 @@ def git(cmd: list[str], dir: Optional[str] = None, capture_output=False, user: O
 
 def git_get_branch(path) -> str:
     result = git(['branch', '--show-current'], dir=path, capture_output=True)
+    if result.returncode:
+        raise Exception(f'Error getting git branch for {path}')
     return result.stdout.decode().strip()
 
 
