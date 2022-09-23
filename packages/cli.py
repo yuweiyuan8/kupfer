@@ -27,7 +27,6 @@ def build(
     rebuild_dependants: bool = False,
     try_download: bool = False,
 ):
-    config.enforce_profile_device_set(hint_or_set_arch=True)
     enforce_wrap()
     arch = arch or get_profile_device(hint_or_set_arch=True).arch
 
