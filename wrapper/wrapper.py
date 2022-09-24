@@ -7,7 +7,7 @@ from typing import Protocol
 
 from config import config
 from config.state import dump_file as dump_config_file
-from constants import CHROOT_PATHS
+from constants import CHROOT_PATHS, WRAPPER_ENV_VAR
 
 WRAPPER_PATHS = CHROOT_PATHS | {
     'ccache': '/ccache',
@@ -99,7 +99,7 @@ class BaseWrapper(Wrapper):
         raise NotImplementedError()
 
     def is_wrapped(self):
-        return os.getenv('KUPFERBOOTSTRAP_WRAPPED') == self.type.upper()
+        return os.getenv(WRAPPER_ENV_VAR) == self.type.upper()
 
     def get_bind_mounts_default(self, wrapped_config_path: str = None, ssh_dir: str = None, target_home: str = '/root'):
         wrapped_config_path = wrapped_config_path or self.wrapped_config_path

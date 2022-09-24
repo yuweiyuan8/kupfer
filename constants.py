@@ -155,6 +155,7 @@ WRAPPER_TYPES = [
     'none',
     'docker',
 ]
+WRAPPER_ENV_VAR = 'KUPFERBOOTSTRAP_WRAPPED'
 
 MAKEPKG_CMD = [
     'makepkg',
