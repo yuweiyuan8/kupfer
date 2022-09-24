@@ -84,9 +84,6 @@ class BaseWrapper(Wrapper):
             file_path=wrapped_config,
             config=(config.file | {
                 'paths': paths,
-                'wrapper': {
-                    'type': 'none'
-                }
             } | config_overrides),
         )
         self.wrapped_config_path = wrapped_config
