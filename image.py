@@ -7,7 +7,7 @@ import click
 import logging
 from signal import pause
 from subprocess import CompletedProcess
-from typing import Union
+from typing import Optional, Union
 
 from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_LOCAL_PACKAGES, BASE_PACKAGES, POST_CMDS
@@ -199,46 +199,32 @@ def mount_chroot(rootfs_source: str, boot_src: str, chroot: DeviceChroot):
     chroot.mount(boot_src, '/boot', options=['defaults'])
 
 
-def dump_aboot(image_path: str) -> str:
-    path = '/tmp/aboot.img'
-    result = subprocess.run([
+def dump_file_from_image(image_path: str, file_path: str, target_path: Optional[str] = None):
+    target_path = target_path or os.path.join('/tmp', os.path.basename(file_path))
+    result = run_root_cmd([
         'debugfs',
         image_path,
         '-R',
-        f'dump /aboot.img {path}',
+        f'\'dump /{file_path.lstrip("/")} {target_path}\'',
     ])
     if result.returncode != 0:
-        raise Exception('Failed to dump aboot.img')
-    return path
+        raise Exception(f'Failed to dump {file_path} from /boot')
+    return target_path
+
+
+def dump_aboot(image_path: str) -> str:
+    return dump_file_from_image(image_path, file_path='/aboot.img')
 
 
 def dump_lk2nd(image_path: str) -> str:
     """
     This doesn't append the image with the appended DTB which is needed for some devices, so it should get added in the future.
     """
-    path = '/tmp/lk2nd.img'
-    result = subprocess.run([
-        'debugfs',
-        image_path,
-        '-R',
-        f'dump /lk2nd.img {path}',
-    ])
-    if result.returncode != 0:
-        raise Exception('Failed to dump lk2nd.img')
-    return path
+    return dump_file_from_image(image_path, file_path='/lk2nd.img')
 
 
 def dump_qhypstub(image_path: str) -> str:
-    path = '/tmp/qhypstub.bin'
-    result = subprocess.run([
-        'debugfs',
-        image_path,
-        '-R',
-        f'dump /qhypstub.bin {path}',
-    ])
-    if result.returncode != 0:
-        raise Exception('Failed to dump qhypstub.bin')
-    return path
+    return dump_file_from_image(image_path, file_path='/qhyptstub.img')
 
 
 def create_img_file(image_path: str, size_str: str):
