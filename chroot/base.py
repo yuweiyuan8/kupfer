@@ -48,7 +48,7 @@ class BaseChroot(Chroot):
 
 def get_base_chroot(arch: Arch) -> BaseChroot:
     name = base_chroot_name(arch)
-    default = BaseChroot(name, arch, copy_base=False, initialize=False)
-    chroot = get_chroot(name, initialize=False, default=default)
+    args = dict(arch=arch, copy_base=False, initialize=False)
+    chroot = get_chroot(name, initialize=False, chroot_class=BaseChroot, chroot_args=args)
     assert isinstance(chroot, BaseChroot)
     return chroot

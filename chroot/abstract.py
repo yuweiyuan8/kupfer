@@ -395,16 +395,18 @@ chroots: dict[str, Chroot] = {}
 
 def get_chroot(
     name: str,
+    chroot_class: type[Chroot],
+    chroot_args: dict,
     initialize: bool = False,
     activate: bool = False,
     fail_if_exists: bool = False,
     extra_repos: Optional[Mapping[str, RepoInfo]] = None,
-    default: Chroot = None,
 ) -> Chroot:
     global chroots
-    if default and name not in chroots:
-        logging.debug(f'Adding chroot {name} to chroot map: {default.uuid}')
-        chroots[name] = default
+    if name not in chroots:
+        chroot = chroot_class(name, **chroot_args)
+        logging.debug(f'Adding chroot {name} to chroot map: {chroot.uuid}')
+        chroots[name] = chroot
     else:
         existing = chroots[name]
         if fail_if_exists:

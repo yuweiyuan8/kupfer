@@ -65,7 +65,7 @@ def get_device_chroot(
 
     repos.update(extra_repos or {})
 
-    default = DeviceChroot(name, arch, initialize=False, copy_base=False, base_packages=packages, extra_repos=repos)
-    chroot = get_chroot(name, **kwargs, extra_repos=repos, default=default)
+    args = dict(arch=arch, initialize=False, copy_base=False, base_packages=packages, extra_repos=repos)
+    chroot = get_chroot(name, **kwargs, extra_repos=repos, chroot_class=DeviceChroot, chroot_args=args)
     assert isinstance(chroot, DeviceChroot)
     return chroot
