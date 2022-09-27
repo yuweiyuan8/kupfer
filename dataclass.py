@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from munch import Munch
-from typing import Optional, Union, Mapping, Any, get_type_hints, get_origin, get_args, Iterable
+from typing import ClassVar, Optional, Union, Mapping, Any, get_type_hints, get_origin, get_args, Iterable
 
 
 def munchclass(*args, init=False, **kwargs):
@@ -23,6 +23,8 @@ def resolve_type_hint(hint: type) -> Iterable[type]:
 
 
 class DataClass(Munch):
+
+    _type_hints: ClassVar[dict[str, Any]]
 
     def __init__(self, d: dict = {}, validate: bool = True, **kwargs):
         self.update(d | kwargs, validate=validate)
@@ -91,7 +93,7 @@ class DataClass(Munch):
 
     def __init_subclass__(cls):
         super().__init_subclass__()
-        cls._type_hints = get_type_hints(cls)
+        cls._type_hints = {name: hint for name, hint in get_type_hints(cls).items() if get_origin(hint) is not ClassVar}
 
     def __repr__(self):
         return f'{type(self)}{dict.__repr__(self.toDict())}'
