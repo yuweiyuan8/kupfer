@@ -5,7 +5,7 @@ import click
 from typing import Optional
 
 from config import config
-from constants import BOOT_STRATEGIES, FLASH_PARTS, FASTBOOT, JUMPDRIVE, JUMPDRIVE_VERSION
+from constants import FLASH_PARTS, FASTBOOT, JUMPDRIVE, JUMPDRIVE_VERSION
 from exec.file import makedir
 from fastboot import fastboot_boot, fastboot_erase_dtbo
 from image import get_device_name, losetup_rootfs_image, get_image_path, dump_aboot, dump_lk2nd
@@ -32,7 +32,9 @@ def cmd_boot(type: str, profile: Optional[str] = None):
     if not sector_size:
         raise Exception(f"Device {device.name} has no flash_pagesize specified")
     image_path = get_image_path(device, flavour)
-    strategy = BOOT_STRATEGIES[device]
+    strategy = deviceinfo.flash_method
+    if not strategy:
+        raise Exception(f"Device {device.name} has no flash strategy defined")
 
     if strategy == FASTBOOT:
         if type == JUMPDRIVE:
@@ -51,3 +53,5 @@ def cmd_boot(type: str, profile: Optional[str] = None):
                 raise Exception(f'Unknown boot image type {type}')
         fastboot_erase_dtbo()
         fastboot_boot(path)
+    else:
+        raise Exception(f"Unknown flash strategy {strategy} for device {device.name}")

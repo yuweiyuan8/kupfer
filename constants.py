@@ -14,14 +14,6 @@ LOCATIONS = [EMMC, MICROSD]
 JUMPDRIVE = 'jumpdrive'
 JUMPDRIVE_VERSION = '0.8'
 
-BOOT_STRATEGIES: dict[str, str] = {
-    'oneplus-enchilada': FASTBOOT,
-    'oneplus-fajita': FASTBOOT,
-    'xiaomi-beryllium-ebbg': FASTBOOT,
-    'xiaomi-beryllium-tianma': FASTBOOT,
-    'bq-paella': FASTBOOT,
-}
-
 BASE_LOCAL_PACKAGES: list[str] = [
     'base-kupfer',
 ]
