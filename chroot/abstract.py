@@ -129,6 +129,7 @@ class Chroot(AbstractChroot):
 
     def get_path(self, *joins: str) -> str:
         if joins:
+            # no need to check for len(joins) > 1 because [1:] will just return []
             joins = (joins[0].lstrip('/'),) + joins[1:]
 
         return os.path.join(self.path, *joins)
@@ -385,7 +386,6 @@ class Chroot(AbstractChroot):
             results = {}
             logging.debug('Falling back to serial installation')
             for pkg in set(packages):
-                # Don't check for errors here because there might be packages that are listed as dependencies but are not available on x86_64
                 results[pkg] = self.run_cmd(f'{cmd} {pkg}')
         return results
 
@@ -410,11 +410,12 @@ def get_chroot(
         if fail_if_exists:
             raise Exception(f'chroot {name} already exists: {existing.uuid}')
         logging.debug(f"returning existing chroot {name}: {existing.uuid}")
+        assert isinstance(existing, chroot_class)
     chroot = chroots[name]
     if extra_repos is not None:
         chroot.extra_repos = dict(extra_repos)  # copy to new dict
     if initialize:
         chroot.initialize()
     if activate:
-        chroot.activate(fail_if_active=False)
+        chroot.activate()
     return chroot
