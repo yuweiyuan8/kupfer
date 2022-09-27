@@ -3,6 +3,7 @@ import os
 
 from glob import glob
 from shutil import rmtree
+from typing import ClassVar
 
 from constants import Arch
 from exec.cmd import run_root_cmd
@@ -15,7 +16,7 @@ from .helpers import base_chroot_name
 
 class BaseChroot(Chroot):
 
-    copy_base: bool = False
+    _copy_base: ClassVar[bool] = False
 
     def create_rootfs(self, reset, pacman_conf_target, active_previously):
         if reset:

@@ -1,7 +1,7 @@
 import atexit
 import os
 
-from typing import Optional
+from typing import ClassVar, Optional
 
 from config import config
 from constants import Arch, BASE_PACKAGES
@@ -17,7 +17,7 @@ from .abstract import get_chroot
 
 class DeviceChroot(BuildChroot):
 
-    copy_base: bool = False
+    _copy_base: ClassVar[bool] = False
 
     def create_rootfs(self, reset, pacman_conf_target, active_previously):
         clss = BuildChroot if self.copy_base else BaseChroot
@@ -65,7 +65,7 @@ def get_device_chroot(
 
     repos.update(extra_repos or {})
 
-    args = dict(arch=arch, initialize=False, copy_base=False, base_packages=packages, extra_repos=repos)
+    args = dict(arch=arch, base_packages=packages, extra_repos=repos)
     chroot = get_chroot(name, **kwargs, extra_repos=repos, chroot_class=DeviceChroot, chroot_args=args)
     assert isinstance(chroot, DeviceChroot)
     return chroot

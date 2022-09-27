@@ -4,7 +4,7 @@ import os
 import subprocess
 from copy import deepcopy
 from shlex import quote as shell_quote
-from typing import Protocol, Union, Optional, Mapping
+from typing import ClassVar, Protocol, Union, Optional, Mapping
 from uuid import uuid4
 
 from config import config
@@ -78,6 +78,9 @@ class AbstractChroot(Protocol):
 
 class Chroot(AbstractChroot):
 
+    _copy_base: ClassVar[bool] = False
+    copy_base: bool
+
     def __repr__(self):
         return f'Chroot({self.name})'
 
@@ -101,7 +104,7 @@ class Chroot(AbstractChroot):
         self.name = name
         self.arch = arch
         self.path = path_override or os.path.join(config.get_path('chroots'), name)
-        self.copy_base = copy_base
+        self.copy_base = copy_base if copy_base is not None else self._copy_base
         self.extra_repos = deepcopy(extra_repos)
         self.base_packages = base_packages.copy()
         if initialize:

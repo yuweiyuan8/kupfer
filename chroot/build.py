@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 from glob import glob
-from typing import Optional
+from typing import ClassVar, Optional
 
 from config import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
@@ -17,7 +17,7 @@ from .base import get_base_chroot
 
 class BuildChroot(Chroot):
 
-    copy_base: bool = True
+    _copy_base: ClassVar[bool] = True
 
     def create_rootfs(self, reset: bool, pacman_conf_target: str, active_previously: bool):
         makedir(config.get_path('chroots'))
@@ -164,7 +164,7 @@ def get_build_chroot(arch: Arch, add_kupfer_repos: bool = True, **kwargs) -> Bui
     if 'extra_repos' in kwargs:
         raise Exception('extra_repos!')
     repos = get_kupfer_local(arch).repos if add_kupfer_repos else {}
-    args = dict(arch=arch, initialize=False, copy_base=True, extra_repos=repos)
+    args = dict(arch=arch)
     chroot = get_chroot(name, **kwargs, extra_repos=repos, chroot_class=BuildChroot, chroot_args=args)
     assert isinstance(chroot, BuildChroot)
     return chroot
