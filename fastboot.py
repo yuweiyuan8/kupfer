@@ -23,8 +23,7 @@ def fastboot_flash(partition, file):
         file,
     ])
     if result.returncode != 0:
-        logging.info(f'Failed to flash {file}')
-        exit(1)
+        raise Exception(f'Failed to flash {file}')
 
 
 def fastboot_boot(file):
@@ -35,5 +34,4 @@ def fastboot_boot(file):
         file,
     ])
     if result.returncode != 0:
-        logging.fatal(f'Failed to boot {file} using fastboot')
-        exit(1)
+        raise Exception(f'Failed to boot {file} using fastboot')
