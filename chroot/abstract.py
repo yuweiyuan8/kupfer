@@ -34,7 +34,6 @@ class AbstractChroot(Protocol):
         name: str,
         arch: Arch,
         copy_base: bool,
-        initialize: bool,
         extra_repos: Mapping[str, RepoInfo],
         base_packages: list[str],
         path_override: str = None,
@@ -89,7 +88,6 @@ class Chroot(AbstractChroot):
         name: str,
         arch: Arch,
         copy_base: bool = None,
-        initialize: bool = False,
         extra_repos: Mapping[str, RepoInfo] = {},
         base_packages: list[str] = ['base', 'base-devel', 'git'],
         path_override: str = None,
@@ -107,8 +105,6 @@ class Chroot(AbstractChroot):
         self.copy_base = copy_base if copy_base is not None else self._copy_base
         self.extra_repos = deepcopy(extra_repos)
         self.base_packages = base_packages.copy()
-        if initialize:
-            self.initialize()
         if self.name.startswith(BASE_CHROOT_PREFIX) and set(get_kupfer_local(self.arch).repos).intersection(set(self.extra_repos)):
             raise Exception(f'Base chroot {self.name} had local repos specified: {self.extra_repos}')
 
