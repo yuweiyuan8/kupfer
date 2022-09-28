@@ -434,7 +434,7 @@ def filter_pkgbuilds(
                 logging.warn(f"Pkg {pkg.name} matches query {matches[0]} but isn't available for architecture {arch}: {pkg.arches}")
                 continue
             result += [pkg]
-            for m in matches:
+            for m in set(matches).intersection(to_find):
                 to_find.remove(m)
 
     if not allow_empty_results:
