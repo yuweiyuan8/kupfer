@@ -156,8 +156,8 @@ MAKEPKG_CMD = [
     '--needed',
 ]
 
-SRCINFO_FILE = 'SRCINFO'
-SRCINFO_METADATA_FILE = 'srcinfo_meta.json'
+SRCINFO_FILE = '.SRCINFO'
+SRCINFO_METADATA_FILE = '.srcinfo_meta.json'
 
 FLAVOUR_INFO_FILE = 'flavourinfo.json'
 FLAVOUR_DESCRIPTION_PREFIX = 'kupfer flavour:'
