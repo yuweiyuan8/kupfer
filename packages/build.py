@@ -18,7 +18,7 @@ from distro.distro import get_kupfer_https, get_kupfer_local
 from distro.package import RemotePackage
 from wrapper import check_programs_wrap, is_wrapped
 
-from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbuild
+from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbuild, SubPkgbuild
 
 pacman_cmd = [
     'pacman',
@@ -461,7 +461,12 @@ def build_package(
     makepkg_conf_path = 'etc/makepkg.conf'
     repo_dir = repo_dir if repo_dir else config.get_path('pkgbuilds')
     foreign_arch = config.runtime.arch != arch
-    deps = (list(set(package.depends) - set(package.names()))) if not package.nodeps else []
+    deps = []
+    if not package.nodeps:
+        names = set(package.names())
+        if isinstance(package, SubPkgbuild):
+            names |= set(package.pkgbase.names())
+        deps = list(set(package.depends) - names)
     needs_rust = 'rust' in deps
     logging.info(f"{package.path}: Preparing to build: getting native arch build chroot")
     build_root: BuildChroot
