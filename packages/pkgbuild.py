@@ -184,11 +184,16 @@ class Pkgbuild(PackageInfo):
             arch = 'any'
         return f'{self.name}-{self.version}-{arch}.pkg.tar.zst'
 
+    def is_built(self) -> bool:
+        raise NotImplementedError()
+
 
 class Pkgbase(Pkgbuild):
     subpackages: list[SubPkgbuild]
+    _is_built: bool
 
     def __init__(self, relative_path: str, subpackages: list[SubPkgbuild] = [], **args):
+        self._is_built = False
         self.subpackages = list(subpackages)
         super().__init__(relative_path, **args)
 
@@ -196,6 +201,7 @@ class Pkgbase(Pkgbuild):
         if not isinstance(pkg, Pkgbase):
             raise Exception(f"Tried to update pkgbase {self.name} with non-base pkg {pkg}")
         Pkgbuild.update(self, pkg)
+        self._is_built = pkg._is_built or self._is_built
         sub_dict = {p.name: p for p in self.subpackages}
         self.subpackages.clear()
         for new_pkg in pkg.subpackages:
@@ -229,6 +235,9 @@ class Pkgbase(Pkgbuild):
             names.update(pkg.names())
         return list(names)
 
+    def is_built(self) -> bool:
+        return self._is_built
+
 
 class SubPkgbuild(Pkgbuild):
     pkgbase: Pkgbase
@@ -248,6 +257,9 @@ class SubPkgbuild(Pkgbuild):
     def refresh_sources(self, lazy: bool = True):
         assert self.pkgbase
         self.pkgbase.refresh_sources(lazy=lazy)
+
+    def is_built(self) -> bool:
+        return self.pkgbase.is_built()
 
 
 def parse_pkgbuild(

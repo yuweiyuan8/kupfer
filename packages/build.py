@@ -18,7 +18,7 @@ from distro.distro import get_kupfer_https, get_kupfer_local
 from distro.package import RemotePackage
 from wrapper import check_programs_wrap, is_wrapped
 
-from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbuild, SubPkgbuild
+from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbase, Pkgbuild, SubPkgbuild
 
 pacman_cmd = [
     'pacman',
@@ -628,6 +628,11 @@ def build_packages(
     for level, need_build in enumerate(build_levels):
         logging.info(f"(Level {level}) Building {', '.join([x.name for x in need_build])}")
         for package in need_build:
+            base = package.pkgbase if isinstance(package, SubPkgbuild) else package
+            assert isinstance(base, Pkgbase)
+            if package.is_built():
+                logging.info(f"Skipping building {package.name} since it was already built this run as part of pkgbase {base.name}")
+                continue
             build_package(
                 package,
                 arch=arch,
@@ -637,6 +642,7 @@ def build_packages(
                 clean_chroot=clean_chroot,
             )
             files += add_package_to_repo(package, arch)
+            base._is_built = True
     return files
 
 
