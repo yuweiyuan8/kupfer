@@ -6,7 +6,7 @@ import multiprocessing
 import os
 
 from joblib import Parallel, delayed
-from typing import Iterable, Optional
+from typing import Iterable, Optional, TypeAlias
 
 from config import config, ConfigStateHolder
 from constants import REPOSITORIES
@@ -62,12 +62,42 @@ def init_pkgbuilds(interactive=False, lazy: bool = True, update: bool = False, s
     _pkgbuilds_initialised = True
 
 
+VersionSpec: TypeAlias = Optional[str]
+VersionSpecs: TypeAlias = dict[str, Optional[list[VersionSpec]]]
+
+
+def parse_version_spec(spec: str) -> tuple[str, VersionSpec]:
+    for op in ['<', '>', '=']:
+        if op in spec:
+            name, ver = spec.split(op, 1)
+            assert name and ver
+            ver = op + ver
+            if name[-1] == '=':
+                assert op != '='
+                name = name[:-1]
+                ver = '=' + ver
+            return name, ver
+    return spec.strip(), None
+
+
+def get_version_specs(spec: str, existing_specs: Optional[VersionSpecs] = None) -> VersionSpecs:
+    specs = existing_specs or {}
+    name, ver = parse_version_spec(spec)
+    _specs = specs.get(name, None)
+    if ver:
+        _specs = _specs or []
+        if ver not in _specs:
+            _specs.append(ver)
+    specs[name] = _specs
+    return specs
+
+
 class Pkgbuild(PackageInfo):
     name: str
     version: str
     arches: list[Arch]
-    depends: list[str]
-    provides: list[str]
+    depends: VersionSpecs
+    provides: VersionSpecs
     replaces: list[str]
     local_depends: list[str]
     repo: str
@@ -84,8 +114,8 @@ class Pkgbuild(PackageInfo):
         self,
         relative_path: str,
         arches: list[Arch] = [],
-        depends: list[str] = [],
-        provides: list[str] = [],
+        depends: VersionSpecs = {},
+        provides: VersionSpecs = {},
         replaces: list[str] = [],
         repo: Optional[str] = None,
         sources_refreshed: bool = False,
@@ -98,8 +128,8 @@ class Pkgbuild(PackageInfo):
         self.name = os.path.basename(relative_path)
         self.version = ''
         self.arches = list(arches)
-        self.depends = list(depends)
-        self.provides = list(provides)
+        self.depends = dict(depends)
+        self.provides = dict(provides)
         self.replaces = list(replaces)
         self.local_depends = []
         self.repo = repo or ''
@@ -120,8 +150,8 @@ class Pkgbuild(PackageInfo):
             self.mode + ')',
         ])
 
-    def names(self):
-        return list(set([self.name] + self.provides + self.replaces))
+    def names(self) -> list[str]:
+        return list({self.name, *self.provides, *self.replaces})
 
     def update_version(self):
         """updates `self.version` from `self.pkgver` and `self.pkgrel`"""
@@ -130,8 +160,8 @@ class Pkgbuild(PackageInfo):
     def update(self, pkg: Pkgbuild):
         self.version = pkg.version
         self.arches = list(pkg.arches)
-        self.depends = list(pkg.depends)
-        self.provides = list(pkg.provides)
+        self.depends = dict(pkg.depends)
+        self.provides = dict(pkg.provides)
         self.replaces = list(pkg.replaces)
         self.local_depends = list(pkg.local_depends)
         self.repo = pkg.repo
@@ -193,6 +223,12 @@ class Pkgbase(Pkgbuild):
         self.sources_refreshed = True
         self.update(basepkg)
 
+    def names(self) -> list[str]:
+        names = set(Pkgbuild.names(self))
+        for pkg in self.subpackages:
+            names.update(pkg.names())
+        return list(names)
+
 
 class SubPkgbuild(Pkgbuild):
     pkgbase: Pkgbase
@@ -206,7 +242,7 @@ class SubPkgbuild(Pkgbuild):
         self.sources_refreshed = False
         self.update(pkgbase)
 
-        self.provides = []
+        self.provides = {}
         self.replaces = []
 
     def refresh_sources(self, lazy: bool = True):
@@ -272,11 +308,11 @@ def parse_pkgbuild(
         elif line.startswith('arch'):
             current.arches.append(splits[1])
         elif line.startswith('provides'):
-            current.provides.append(splits[1])
+            current.provides = get_version_specs(splits[1], current.provides)
         elif line.startswith('replaces'):
             current.replaces.append(splits[1])
         elif line.startswith('depends') or line.startswith('makedepends') or line.startswith('checkdepends') or line.startswith('optdepends'):
-            current.depends.append(splits[1].split('=')[0].split(': ')[0])
+            current.depends = get_version_specs(splits[1].split(': ', 1)[0], current.depends)
 
     results: list[Pkgbuild] = list(base_package.subpackages)
     if multi_pkgs:
@@ -285,7 +321,6 @@ def parse_pkgbuild(
     base_package.update_version()
     for pkg in results:
         assert isinstance(pkg, Pkgbuild)
-        pkg.depends = list(set(pkg.depends))  # deduplicate dependencies
         pkg.update_version()
         if not (pkg.version == base_package.version):
             raise Exception(f'Subpackage malformed! Versions differ! base: {base_package}, subpackage: {pkg}')
@@ -376,7 +411,7 @@ def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: O
     # This filters local_depends to only include the ones that are provided by local PKGBUILDs
     # we need to iterate over the entire cache in case partial scans happened
     for package in _pkgbuilds_cache.values():
-        package.local_depends = package.depends.copy()
+        package.local_depends = list(package.depends.keys())
         for dep in package.depends.copy():
             found = dep in _pkgbuilds_cache
             for pkg in _pkgbuilds_cache.values():
