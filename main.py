@@ -8,7 +8,7 @@ from typing import Optional
 
 from logger import logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
-from config import config, config_option, cmd_config
+from config.cli import config, config_option, cmd_config
 from forwarding import cmd_forwarding
 from packages.cli import cmd_packages
 from flavours.cli import cmd_flavours

@@ -7,7 +7,7 @@ import os
 
 from typing import Mapping
 
-from config import config
+from config.state import config
 from constants import Arch
 from dataclass import DataClass
 

@@ -5,7 +5,7 @@ import os
 from glob import glob
 from typing import Iterable, Optional
 
-from config import config
+from config.state import config
 from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_FILE, SRCINFO_METADATA_FILE
 from exec.file import remove_file
 from devices.device import get_profile_device

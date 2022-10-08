@@ -8,7 +8,7 @@ import os
 from joblib import Parallel, delayed
 from typing import Iterable, Optional, TypeAlias
 
-from config import config, ConfigStateHolder
+from config.state import config, ConfigStateHolder
 from constants import REPOSITORIES
 from constants import Arch
 from distro.package import PackageInfo

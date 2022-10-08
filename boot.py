@@ -4,7 +4,7 @@ import click
 
 from typing import Optional
 
-from config import config
+from config.state import config
 from constants import FLASH_PARTS, FASTBOOT, JUMPDRIVE, JUMPDRIVE_VERSION
 from exec.file import makedir
 from fastboot import fastboot_boot, fastboot_erase_dtbo

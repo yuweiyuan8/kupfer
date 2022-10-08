@@ -2,7 +2,7 @@ from typing import Generic, Mapping, Optional, TypeVar
 
 from constants import Arch, ARCHES, BASE_DISTROS, REPOSITORIES, KUPFER_HTTPS, CHROOT_PATHS
 from generator import generate_pacman_conf_body
-from config import config
+from config.state import config
 
 from .repo import BinaryPackageType, RepoInfo, Repo, LocalRepo, RemoteRepo
 

@@ -8,7 +8,7 @@ from typing import ClassVar
 from constants import Arch
 from exec.cmd import run_root_cmd
 from exec.file import makedir, root_makedir
-from config import config
+from config.state import config
 
 from .abstract import Chroot, get_chroot
 from .helpers import base_chroot_name

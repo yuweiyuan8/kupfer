@@ -7,7 +7,7 @@ import subprocess
 
 from typing import Optional
 
-from config import config
+from config.state import config
 from constants import MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE
 from dataclass import DataClass
 from exec.cmd import run_cmd

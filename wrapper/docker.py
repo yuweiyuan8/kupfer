@@ -4,7 +4,7 @@ import pathlib
 import subprocess
 import sys
 
-from config import config
+from config.state import config
 from exec.file import makedir
 
 from .wrapper import BaseWrapper, WRAPPER_PATHS

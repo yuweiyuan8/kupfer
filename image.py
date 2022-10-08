@@ -11,7 +11,7 @@ from typing import Optional, Union
 
 from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_LOCAL_PACKAGES, BASE_PACKAGES, POST_CMDS
-from config import config, Profile
+from config.state import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir

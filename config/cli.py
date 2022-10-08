@@ -5,9 +5,12 @@ import os
 from copy import deepcopy
 from typing import Any, Iterable, Optional, Union
 
+from devices.device import get_devices
+from flavours.flavour import get_flavours
+
 from .scheme import Profile
 from .profile import PROFILE_EMPTY, PROFILE_DEFAULTS
-from .state import ConfigStateHolder, CONFIG_DEFAULTS, CONFIG_SECTIONS, merge_configs
+from .state import config, CONFIG_DEFAULTS, CONFIG_SECTIONS, merge_configs
 
 
 def list_to_comma_str(str_list: list[str], default='') -> str:
@@ -129,7 +132,6 @@ def prompt_choice(current: Optional[Any], key: str, choices: Iterable[Any], allo
 
 
 def prompt_profile_device(current: Optional[str], profile_name: str) -> tuple[str, bool]:
-    from devices.device import get_devices
     devices = get_devices()
     print(click.style("Pick your device!\nThese are the available devices:", bold=True))
     for dev in sorted(devices.keys()):
@@ -138,7 +140,6 @@ def prompt_profile_device(current: Optional[str], profile_name: str) -> tuple[st
 
 
 def prompt_profile_flavour(current: Optional[str], profile_name: str) -> tuple[str, bool]:
-    from flavours.flavour import get_flavours
     flavours = get_flavours()
     print(click.style("Pick your flavour!\nThese are the available flavours:", bold=True))
     for f in sorted(flavours.keys()):
@@ -182,8 +183,6 @@ def prompt_for_save(retry_ctx: Optional[click.Context] = None):
             retry_ctx.forward(retry_ctx.command)
     return False
 
-
-config: ConfigStateHolder = ConfigStateHolder(file_conf_base=CONFIG_DEFAULTS)
 
 config_option = click.option(
     '-C',

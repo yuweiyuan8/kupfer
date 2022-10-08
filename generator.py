@@ -1,5 +1,5 @@
 from constants import Arch, CFLAGS_ARCHES, CFLAGS_GENERAL, COMPILE_ARCHES, GCC_HOSTSPECS
-from config import config
+from config.state import config
 
 
 def generate_makepkg_conf(arch: Arch, cross: bool = False, chroot: str = None) -> str:

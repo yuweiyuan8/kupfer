@@ -1,7 +1,7 @@
 import os
 from typing import Optional, TypedDict
 
-from config import config
+from config.state import config
 from constants import Arch
 
 BIND_BUILD_DIRS = 'BINDBUILDDIRS'

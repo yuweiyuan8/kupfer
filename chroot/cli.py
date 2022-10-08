@@ -2,7 +2,7 @@ import click
 import logging
 import os
 
-from config import config
+from config.state import config
 from wrapper import enforce_wrap
 
 from .abstract import Chroot

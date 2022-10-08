@@ -315,3 +315,6 @@ class ConfigStateHolder:
             new = {key: val for key, val in new.items() if val is not None}
         self.file.profiles[name] = new
         self.invalidate_profile_cache()
+
+
+config: ConfigStateHolder = ConfigStateHolder(file_conf_base=CONFIG_DEFAULTS)

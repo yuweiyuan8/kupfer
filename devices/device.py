@@ -3,7 +3,7 @@ import os
 
 from typing import Optional
 
-from config import config
+from config.state import config
 from constants import Arch, ARCHES
 from config.scheme import DataClass, munchclass
 from distro.distro import get_kupfer_local

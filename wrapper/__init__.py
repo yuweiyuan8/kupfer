@@ -3,7 +3,7 @@ import logging
 
 from typing import Sequence, Union
 
-from config import config
+from config.state import config
 from constants import Arch
 from utils import programs_available
 from .docker import DockerWrapper

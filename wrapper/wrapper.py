@@ -5,7 +5,7 @@ import pathlib
 
 from typing import Protocol
 
-from config import config
+from config.state import config
 from config.state import dump_file as dump_config_file
 from constants import CHROOT_PATHS, WRAPPER_ENV_VAR
 

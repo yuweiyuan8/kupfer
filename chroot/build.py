@@ -4,7 +4,7 @@ import subprocess
 from glob import glob
 from typing import ClassVar, Optional
 
-from config import config
+from config.state import config
 from constants import Arch, GCC_HOSTSPECS, CROSSDIRECT_PKGS, CHROOT_PATHS
 from distro.distro import get_kupfer_local
 from exec.cmd import run_root_cmd

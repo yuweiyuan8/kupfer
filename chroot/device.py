@@ -3,7 +3,7 @@ import os
 
 from typing import ClassVar, Optional
 
-from config import config
+from config.state import config
 from constants import Arch, BASE_PACKAGES
 from distro.repo import RepoInfo
 from distro.distro import get_kupfer_local, get_kupfer_https

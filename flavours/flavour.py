@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-from config import config
+from config.state import config
 from constants import FLAVOUR_DESCRIPTION_PREFIX, FLAVOUR_INFO_FILE
 from packages.pkgbuild import discover_pkgbuilds, get_pkgbuild_by_name, init_pkgbuilds, Pkgbuild
 

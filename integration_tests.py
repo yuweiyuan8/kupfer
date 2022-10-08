@@ -4,7 +4,7 @@ import pytest
 
 from glob import glob
 
-from config import config, CONFIG_DEFAULTS
+from config.state import config, CONFIG_DEFAULTS
 from constants import SRCINFO_METADATA_FILE
 from exec.file import get_temp_dir
 from logger import setup_logging

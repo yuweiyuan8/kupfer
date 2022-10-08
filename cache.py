@@ -2,7 +2,7 @@ import click
 import os
 import logging
 
-from config import config
+from config.state import config
 from constants import CHROOT_PATHS
 from exec.file import remove_file
 from packages.cli import cmd_clean as cmd_clean_pkgbuilds
