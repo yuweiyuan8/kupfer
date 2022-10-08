@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import click
 import json
 import logging
 import os
@@ -10,10 +9,7 @@ from typing import Optional
 
 from config import config
 from constants import FLAVOUR_DESCRIPTION_PREFIX, FLAVOUR_INFO_FILE
-
-from .pkgbuild import discover_pkgbuilds, get_pkgbuild_by_name, init_pkgbuilds, Pkgbuild
-
-profile_option = click.option('-p', '--profile', help="name of the profile to use", required=False, default=None)
+from packages.pkgbuild import discover_pkgbuilds, get_pkgbuild_by_name, init_pkgbuilds, Pkgbuild
 
 
 @dataclass
@@ -112,18 +108,3 @@ def get_flavour(name: str, lazy: bool = True):
 def get_profile_flavour(profile_name: Optional[str] = None) -> Flavour:
     profile = config.enforce_profile_flavour_set(profile_name=profile_name)
     return get_flavour(profile.flavour)
-
-
-@click.command(name='flavours')
-def cmd_flavours():
-    'list information about available flavours'
-    flavours = get_flavours()
-    if not flavours:
-        raise Exception("No flavours found!")
-    for name in sorted(flavours.keys()):
-        f = flavours[name]
-        try:
-            f.parse_flavourinfo()
-        except:
-            pass
-        print(f)

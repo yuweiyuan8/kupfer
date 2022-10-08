@@ -17,7 +17,7 @@ from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
 from packages.build import build_enable_qemu_binfmt, build_packages, filter_pkgbuilds
 from devices.device import Device, get_profile_device
-from packages.flavour import Flavour, get_profile_flavour
+from flavours.flavour import Flavour, get_profile_flavour
 from ssh import copy_ssh_keys
 from wrapper import enforce_wrap
 

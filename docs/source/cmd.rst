@@ -14,9 +14,9 @@ only used to trigger builds of the submodule docs!
     config
     devices
     flash
+    flavours
     forwarding
     image
     packages
     ssh
     telnet
-

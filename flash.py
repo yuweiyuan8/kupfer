@@ -10,7 +10,8 @@ from exec.file import get_temp_dir
 from fastboot import fastboot_flash
 from image import dd_image, partprobe, shrink_fs, losetup_rootfs_image, losetup_destroy, dump_aboot, dump_lk2nd, dump_qhypstub, get_image_name, get_image_path
 from devices.device import get_profile_device
-from packages.flavour import get_profile_flavour, profile_option
+from flavours.flavour import get_profile_flavour
+from flavours.cli import profile_option
 from wrapper import enforce_wrap
 
 ABOOT = FLASH_PARTS['ABOOT']

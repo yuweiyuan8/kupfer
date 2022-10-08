@@ -138,7 +138,7 @@ def prompt_profile_device(current: Optional[str], profile_name: str) -> tuple[st
 
 
 def prompt_profile_flavour(current: Optional[str], profile_name: str) -> tuple[str, bool]:
-    from packages.flavour import get_flavours
+    from flavours.flavour import get_flavours
     flavours = get_flavours()
     print(click.style("Pick your flavour!\nThese are the available flavours:", bold=True))
     for f in sorted(flavours.keys()):

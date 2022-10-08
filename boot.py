@@ -10,7 +10,8 @@ from exec.file import makedir
 from fastboot import fastboot_boot, fastboot_erase_dtbo
 from image import get_device_name, losetup_rootfs_image, get_image_path, dump_aboot, dump_lk2nd
 from devices.device import get_profile_device
-from packages.flavour import get_profile_flavour, profile_option
+from flavours.flavour import get_profile_flavour
+from flavours.cli import profile_option
 from wrapper import enforce_wrap
 
 LK2ND = FLASH_PARTS['LK2ND']

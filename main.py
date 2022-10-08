@@ -11,8 +11,8 @@ from wrapper import nowrapper_option, enforce_wrap
 from config import config, config_option, cmd_config
 from forwarding import cmd_forwarding
 from packages.cli import cmd_packages
+from flavours.cli import cmd_flavours
 from devices.cli import cmd_devices
-from packages.flavour import cmd_flavours
 from telnet import cmd_telnet
 from chroot.cli import cmd_chroot
 from cache import cmd_cache
