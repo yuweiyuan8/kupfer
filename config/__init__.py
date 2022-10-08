@@ -129,7 +129,7 @@ def prompt_choice(current: Optional[Any], key: str, choices: Iterable[Any], allo
 
 
 def prompt_profile_device(current: Optional[str], profile_name: str) -> tuple[str, bool]:
-    from packages.device import get_devices
+    from devices.device import get_devices
     devices = get_devices()
     print(click.style("Pick your device!\nThese are the available devices:", bold=True))
     for dev in sorted(devices.keys()):

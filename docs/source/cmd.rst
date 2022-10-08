@@ -12,6 +12,7 @@ only used to trigger builds of the submodule docs!
     cache
     chroot
     config
+    devices
     flash
     forwarding
     image

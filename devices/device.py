@@ -1,4 +1,3 @@
-import click
 import logging
 import os
 
@@ -9,10 +8,9 @@ from constants import Arch, ARCHES
 from config.scheme import DataClass, munchclass
 from distro.distro import get_kupfer_local
 from distro.package import LocalPackage
+from packages.pkgbuild import Pkgbuild, _pkgbuilds_cache, discover_pkgbuilds, get_pkgbuild_by_path, init_pkgbuilds
 from utils import read_files_from_tar
 
-from .build import check_package_version_built
-from .pkgbuild import Pkgbuild, _pkgbuilds_cache, discover_pkgbuilds, get_pkgbuild_by_path, init_pkgbuilds
 from .deviceinfo import DeviceInfo, parse_deviceinfo
 
 DEVICE_DEPRECATIONS = {
@@ -37,6 +35,8 @@ class Device(DataClass):
 
     def parse_deviceinfo(self, try_download: bool = True, lazy: bool = True):
         if not lazy or 'deviceinfo' not in self or self.deviceinfo is None:
+            # avoid import loop
+            from packages.build import check_package_version_built
             is_built = check_package_version_built(self.package, self.arch, try_download=try_download)
             if not is_built:
                 raise Exception(f"device package {self.package.name} for device {self.name} couldn't be acquired!")
@@ -154,13 +154,3 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
 def get_profile_device(profile_name: Optional[str] = None, hint_or_set_arch: bool = False):
     profile = config.enforce_profile_device_set(profile_name=profile_name, hint_or_set_arch=hint_or_set_arch)
     return get_device(profile.device)
-
-
-@click.command(name='list')
-def cmd_devices_list():
-    'list the available devices and descriptions'
-    devices = get_devices()
-    if not devices:
-        raise Exception("No devices found!")
-    for d in sorted(devices.keys()):
-        print(devices[d])

@@ -1,7 +1,7 @@
 from config import config
 
-from .device import get_device
 from .deviceinfo import DeviceInfo, parse_deviceinfo
+from .device import get_device
 
 deviceinfo_text = """
 # Reference: <https://postmarketos.org/deviceinfo>

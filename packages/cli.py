@@ -8,6 +8,7 @@ from typing import Iterable, Optional
 from config import config
 from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_FILE, SRCINFO_METADATA_FILE
 from exec.file import remove_file
+from devices.device import get_profile_device
 from distro.distro import get_kupfer_local
 from distro.package import LocalPackage
 from ssh import run_ssh_command, scp_put_files
@@ -16,7 +17,6 @@ from wrapper import check_programs_wrap, enforce_wrap
 
 from .build import build_packages_by_paths
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, init_pkgbuilds
-from .device import cmd_devices_list, get_profile_device
 from .flavour import cmd_flavours_list
 
 
@@ -52,7 +52,6 @@ def cmd_packages():
 
 
 cmd_packages.add_command(cmd_flavours_list, 'flavours')
-cmd_packages.add_command(cmd_devices_list, 'devices')
 
 
 @cmd_packages.command(name='update')

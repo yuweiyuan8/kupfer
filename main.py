@@ -10,7 +10,8 @@ from logger import logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
 from config import config, config_option, cmd_config
 from forwarding import cmd_forwarding
-from packages import cmd_packages
+from packages.cli import cmd_packages
+from devices.cli import cmd_devices
 from telnet import cmd_telnet
 from chroot import cmd_chroot
 from cache import cmd_cache
@@ -59,16 +60,17 @@ def main():
         exit(1)
 
 
-cli.add_command(cmd_config)
-cli.add_command(cmd_cache)
-cli.add_command(cmd_packages)
-cli.add_command(cmd_image)
 cli.add_command(cmd_boot)
-cli.add_command(cmd_flash)
-cli.add_command(cmd_ssh)
-cli.add_command(cmd_forwarding)
-cli.add_command(cmd_telnet)
+cli.add_command(cmd_cache)
 cli.add_command(cmd_chroot)
+cli.add_command(cmd_config)
+cli.add_command(cmd_devices)
+cli.add_command(cmd_flash)
+cli.add_command(cmd_forwarding)
+cli.add_command(cmd_image)
+cli.add_command(cmd_packages)
+cli.add_command(cmd_ssh)
+cli.add_command(cmd_telnet)
 
 if __name__ == '__main__':
     main()
