@@ -7,7 +7,7 @@ cleanbuild:
 	@make html
 
 clean:
-	rm -rf html source/cli
+	rm -rf html source/cli .buildinfo .doctrees
 
 html:
 	sphinx-build $(buildargs)
