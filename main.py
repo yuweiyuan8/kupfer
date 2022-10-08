@@ -12,6 +12,7 @@ from config import config, config_option, cmd_config
 from forwarding import cmd_forwarding
 from packages.cli import cmd_packages
 from devices.cli import cmd_devices
+from packages.flavour import cmd_flavours
 from telnet import cmd_telnet
 from chroot import cmd_chroot
 from cache import cmd_cache
@@ -66,6 +67,7 @@ cli.add_command(cmd_chroot)
 cli.add_command(cmd_config)
 cli.add_command(cmd_devices)
 cli.add_command(cmd_flash)
+cli.add_command(cmd_flavours)
 cli.add_command(cmd_forwarding)
 cli.add_command(cmd_image)
 cli.add_command(cmd_packages)

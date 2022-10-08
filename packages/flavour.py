@@ -114,8 +114,8 @@ def get_profile_flavour(profile_name: Optional[str] = None) -> Flavour:
     return get_flavour(profile.flavour)
 
 
-@click.command(name='list')
-def cmd_flavours_list():
+@click.command(name='flavours')
+def cmd_flavours():
     'list information about available flavours'
     flavours = get_flavours()
     if not flavours:

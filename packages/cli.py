@@ -17,7 +17,6 @@ from wrapper import check_programs_wrap, enforce_wrap
 
 from .build import build_packages_by_paths
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, init_pkgbuilds
-from .flavour import cmd_flavours_list
 
 
 def build(
@@ -49,9 +48,6 @@ def build(
 @click.group(name='packages')
 def cmd_packages():
     """Build and manage packages and PKGBUILDs"""
-
-
-cmd_packages.add_command(cmd_flavours_list, 'flavours')
 
 
 @cmd_packages.command(name='update')
