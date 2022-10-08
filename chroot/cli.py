@@ -4,6 +4,7 @@ import os
 
 from config.state import config
 from wrapper import enforce_wrap
+from devices.device import get_profile_device
 
 from .abstract import Chroot
 from .base import get_base_chroot
@@ -37,9 +38,7 @@ def cmd_chroot(ctx: click.Context, type: str = 'build', name: str = None, enable
     chroot: Chroot
     arch = name
     if not arch:
-        # TODO: importing packages.device.get_profile_device() causes import loop:
-        # arch = get_profile_device().arch
-        arch = config.runtime.arch
+        arch = get_profile_device().arch
     assert arch
     if type == 'base':
         chroot = get_base_chroot(arch)
