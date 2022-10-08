@@ -9,9 +9,6 @@ from .abstract import Chroot
 from .base import get_base_chroot
 from .build import get_build_chroot, BuildChroot
 
-# export Chroot class
-Chroot = Chroot
-
 CHROOT_TYPES = ['base', 'build', 'rootfs']
 
 

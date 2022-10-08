@@ -14,7 +14,7 @@ from packages.cli import cmd_packages
 from devices.cli import cmd_devices
 from packages.flavour import cmd_flavours
 from telnet import cmd_telnet
-from chroot import cmd_chroot
+from chroot.cli import cmd_chroot
 from cache import cmd_cache
 from image import cmd_image
 from boot import cmd_boot
