@@ -8,12 +8,10 @@ only used to trigger builds of the submodule docs!
    :template: command.rst
    :recursive:
 
-    boot
     cache
     chroot
     config
     devices
-    flash
     flavours
     image
     net

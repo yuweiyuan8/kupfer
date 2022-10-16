@@ -15,9 +15,7 @@ from devices.cli import cmd_devices
 from net.cli import cmd_net
 from chroot.cli import cmd_chroot
 from cache import cmd_cache
-from image import cmd_image
-from boot import cmd_boot
-from flash import cmd_flash
+from image.cli import cmd_image
 
 
 @click.group()
@@ -59,12 +57,10 @@ def main():
         exit(1)
 
 
-cli.add_command(cmd_boot)
 cli.add_command(cmd_cache)
 cli.add_command(cmd_chroot)
 cli.add_command(cmd_config)
 cli.add_command(cmd_devices)
-cli.add_command(cmd_flash)
 cli.add_command(cmd_flavours)
 cli.add_command(cmd_image)
 cli.add_command(cmd_net)

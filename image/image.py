@@ -9,16 +9,16 @@ from signal import pause
 from subprocess import CompletedProcess
 from typing import Optional, Union
 
+from config.state import config, Profile
 from chroot.device import DeviceChroot, get_device_chroot
 from constants import Arch, BASE_LOCAL_PACKAGES, BASE_PACKAGES, POST_CMDS
-from config.state import config, Profile
 from distro.distro import get_base_distro, get_kupfer_https
+from devices.device import Device, get_profile_device
 from exec.cmd import run_root_cmd, generate_cmd_su
 from exec.file import root_write_file, root_makedir, makedir
-from packages.build import build_enable_qemu_binfmt, build_packages, filter_pkgbuilds
-from devices.device import Device, get_profile_device
 from flavours.flavour import Flavour, get_profile_flavour
 from net.ssh import copy_ssh_keys
+from packages.build import build_enable_qemu_binfmt, build_packages, filter_pkgbuilds
 from wrapper import enforce_wrap
 
 # image files need to be slightly smaller than partitions to fit
@@ -338,7 +338,7 @@ def install_rootfs(
 
 @click.group(name='image')
 def cmd_image():
-    """Build and manage device images"""
+    """Build, flash and boot device images"""
 
 
 @cmd_image.command(name='build')

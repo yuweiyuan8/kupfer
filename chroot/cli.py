@@ -28,7 +28,7 @@ def cmd_chroot(ctx: click.Context, type: str = 'build', name: str = None, enable
         raise Exception(f'Unknown chroot type: "{type}"')
 
     if type == 'rootfs':
-        from image import cmd_inspect
+        from image.image import cmd_inspect
         assert isinstance(cmd_inspect, click.Command)
         ctx.invoke(cmd_inspect, profile=name, shell=True)
         return
