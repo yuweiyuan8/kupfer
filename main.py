@@ -9,17 +9,15 @@ from typing import Optional
 from logger import logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
 from config.cli import config, config_option, cmd_config
-from forwarding import cmd_forwarding
 from packages.cli import cmd_packages
 from flavours.cli import cmd_flavours
 from devices.cli import cmd_devices
-from telnet import cmd_telnet
+from net.cli import cmd_net
 from chroot.cli import cmd_chroot
 from cache import cmd_cache
 from image import cmd_image
 from boot import cmd_boot
 from flash import cmd_flash
-from ssh import cmd_ssh
 
 
 @click.group()
@@ -68,11 +66,9 @@ cli.add_command(cmd_config)
 cli.add_command(cmd_devices)
 cli.add_command(cmd_flash)
 cli.add_command(cmd_flavours)
-cli.add_command(cmd_forwarding)
 cli.add_command(cmd_image)
+cli.add_command(cmd_net)
 cli.add_command(cmd_packages)
-cli.add_command(cmd_ssh)
-cli.add_command(cmd_telnet)
 
 if __name__ == '__main__':
     main()

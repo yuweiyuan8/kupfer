@@ -11,7 +11,7 @@ from exec.file import remove_file
 from devices.device import get_profile_device
 from distro.distro import get_kupfer_local
 from distro.package import LocalPackage
-from ssh import run_ssh_command, scp_put_files
+from net.ssh import run_ssh_command, scp_put_files
 from utils import git
 from wrapper import check_programs_wrap, enforce_wrap
 
