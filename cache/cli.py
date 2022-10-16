@@ -13,7 +13,7 @@ PATHS = list(CHROOT_PATHS.keys())
 
 @click.group(name='cache')
 def cmd_cache():
-    """Clean various working directories"""
+    """Clean various cache directories"""
 
 
 @cmd_cache.command(name='clean')

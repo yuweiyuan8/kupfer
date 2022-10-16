@@ -8,13 +8,14 @@ from typing import Optional
 
 from logger import logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
+
 from config.cli import config, config_option, cmd_config
 from packages.cli import cmd_packages
 from flavours.cli import cmd_flavours
 from devices.cli import cmd_devices
 from net.cli import cmd_net
 from chroot.cli import cmd_chroot
-from cache import cmd_cache
+from cache.cli import cmd_cache
 from image.cli import cmd_image
 
 
