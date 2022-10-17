@@ -38,6 +38,7 @@ def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=
                 result = git(['switch', branch], dir=pkgbuilds_dir)
                 if result.returncode != 0:
                     raise Exception('failed switching PKGBUILDs branches')
+            logging.warning('Hint: you can use `kupferbootstrap packages update` to switch branches')
 
         if update:
             if interactive:

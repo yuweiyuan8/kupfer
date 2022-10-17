@@ -50,8 +50,11 @@ def cmd_packages():
     """Build and manage packages and PKGBUILDs"""
 
 
+non_interactive_flag = click.option('--non-interactive', is_flag=True)
+
+
 @cmd_packages.command(name='update')
-@click.option('--non-interactive', is_flag=True)
+@non_interactive_flag
 @click.option('--switch-branch', is_flag=True, help="Force the branch to be corrected even in non-interactive mode")
 def cmd_update(non_interactive: bool = False, switch_branch: bool = False):
     """Update PKGBUILDs git repo"""
@@ -60,8 +63,12 @@ def cmd_update(non_interactive: bool = False, switch_branch: bool = False):
     discover_pkgbuilds(lazy=False)
 
 
-# alias "update" to "init"
-cmd_packages.add_command(cmd_update, 'init')
+@cmd_packages.command(name='init')
+@non_interactive_flag
+@click.option('-u', '--update', is_flag=True, help='Use git pull to update the PKGBUILDs')
+def cmd_init(non_interactive: bool = False, update: bool = False):
+    "Ensure PKGBUILDs git repo is checked out locally"
+    init_pkgbuilds(interactive=not non_interactive, lazy=False, update=update, switch_branch=False)
 
 
 @cmd_packages.command(name='build')
