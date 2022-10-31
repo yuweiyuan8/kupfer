@@ -60,3 +60,14 @@ def test_get_deviceinfo_from_repo():
     assert dev
     info = dev.parse_deviceinfo()
     assert info
+
+
+def test_get_variant_deviceinfo_from_repo():
+    config.try_load_file()
+    dev = get_device('sdm845-xiaomi-beryllium-ebbg')
+    assert dev
+    info = dev.parse_deviceinfo()
+    assert info
+    assert 'dtb' in info  # variant-specific variable, check it has been stripped down from 'dtb_ebbg' to 'dtb'
+    assert 'dtb_tianma' not in info
+    assert info.dtb
