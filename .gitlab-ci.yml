@@ -26,7 +26,7 @@ pytest:
   stage: check
   image: archlinux
   before_script:
-    - pacman -Sy --noconfirm --needed archlinux-keyring && pacman -Su --noconfirm python python-pip sudo git base-devel
+    - pacman -Sy --noconfirm --needed archlinux-keyring && pacman -Su --noconfirm python python-pip sudo git base-devel arch-install-scripts rsync
     - pip install -r test_requirements.txt -r requirements.txt
     - 'echo "kupfer ALL = (ALL) NOPASSWD: ALL" > /etc/sudoers.d/kupfer_all'
     - useradd -m kupfer
