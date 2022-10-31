@@ -98,6 +98,7 @@ class Pkgbuild(PackageInfo):
     version: str
     arches: list[Arch]
     depends: VersionSpecs
+    makedepends: VersionSpecs
     provides: VersionSpecs
     replaces: list[str]
     local_depends: list[str]
@@ -116,6 +117,7 @@ class Pkgbuild(PackageInfo):
         relative_path: str,
         arches: list[Arch] = [],
         depends: VersionSpecs = {},
+        makedepends: VersionSpecs = {},
         provides: VersionSpecs = {},
         replaces: list[str] = [],
         repo: Optional[str] = None,
@@ -130,6 +132,7 @@ class Pkgbuild(PackageInfo):
         self.version = ''
         self.arches = list(arches)
         self.depends = dict(depends)
+        self.makedepends = dict(makedepends)
         self.provides = dict(provides)
         self.replaces = list(replaces)
         self.local_depends = []
@@ -162,6 +165,7 @@ class Pkgbuild(PackageInfo):
         self.version = pkg.version
         self.arches = list(pkg.arches)
         self.depends = dict(pkg.depends)
+        self.makedepends = dict(pkg.makedepends)
         self.provides = dict(pkg.provides)
         self.replaces = list(pkg.replaces)
         self.local_depends = list(pkg.local_depends)
@@ -324,8 +328,11 @@ def parse_pkgbuild(
             current.provides = get_version_specs(splits[1], current.provides)
         elif line.startswith('replaces'):
             current.replaces.append(splits[1])
-        elif line.startswith('depends') or line.startswith('makedepends') or line.startswith('checkdepends') or line.startswith('optdepends'):
-            current.depends = get_version_specs(splits[1].split(': ', 1)[0], current.depends)
+        elif splits[0] in ['depends', 'makedepends', 'checkdepends', 'optdepends']:
+            spec = splits[1].split(': ', 1)[0]
+            current.depends = get_version_specs(spec, current.depends)
+            if splits[0] == 'makedepends':
+                current.makedepends = get_version_specs(spec, current.makedepends)
 
     results: list[Pkgbuild] = list(base_package.subpackages)
     if multi_pkgs:
