@@ -16,8 +16,8 @@ from .deviceinfo import DeviceInfo, parse_deviceinfo
 DEVICE_DEPRECATIONS = {
     "oneplus-enchilada": "sdm845-oneplus-enchilada",
     "oneplus-fajita": "sdm845-oneplus-fajita",
-    "xiaomi-beryllium-ebbg": "sdm845-sdm845-xiaomi-beryllium-ebbg",
-    "xiaomi-beryllium-tianma": "sdm845-sdm845-xiaomi-tianma",
+    "xiaomi-beryllium-ebbg": "sdm845-xiaomi-beryllium-ebbg",
+    "xiaomi-beryllium-tianma": "sdm845-xiaomi-beryllium-tianma",
     "bq-paella": "msm8916-bq-paella",
 }
 
