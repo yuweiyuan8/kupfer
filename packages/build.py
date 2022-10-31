@@ -461,12 +461,13 @@ def build_package(
     makepkg_conf_path = 'etc/makepkg.conf'
     repo_dir = repo_dir if repo_dir else config.get_path('pkgbuilds')
     foreign_arch = config.runtime.arch != arch
-    deps = []
+    deps = list(package.makedepends)
+    names = set(package.names())
+    if isinstance(package, SubPkgbuild):
+        names |= set(package.pkgbase.names())
     if not package.nodeps:
-        names = set(package.names())
-        if isinstance(package, SubPkgbuild):
-            names |= set(package.pkgbase.names())
-        deps = list(set(package.depends) - names)
+        deps += list(package.depends)
+    deps = list(set(deps) - names)
     needs_rust = 'rust' in deps
     logging.info(f"{package.path}: Preparing to build: getting native arch build chroot")
     build_root: BuildChroot
@@ -495,9 +496,10 @@ def build_package(
             env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
             native_chroot.mount_ccache(user=build_user)
         logging.info('Setting up dependencies for cross-compilation')
+        # include crossdirect for ccache symlinks and qemu-user
+        cross_deps = list(package.makedepends) if package.nodeps else (deps + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
+        results = native_chroot.try_install_packages(cross_deps)
         if not package.nodeps:
-            # include crossdirect for ccache symlinks and qemu-user
-            results = native_chroot.try_install_packages(deps + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
             res_crossdirect = results['crossdirect']
             assert isinstance(res_crossdirect, subprocess.CompletedProcess)
             if res_crossdirect.returncode != 0:
