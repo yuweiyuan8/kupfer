@@ -54,6 +54,20 @@ def test_parse_deviceinfo():
     assert d.gpu_accelerated
 
 
+def test_parse_variant_deviceinfo():
+    config.try_load_file()
+    # {'variant1': 'AAAAA', 'variant2': 'BBBBB', 'variant3': 'CCCCC'}
+    variants = {f"variant{i+1}": chr(ord('A') + i) * 5 for i in range(0, 3)}
+    field = "dev_touchscreen_calibration"
+    text = deviceinfo_text + '\n'.join([""] + [f"deviceinfo_{field}_{variant}={value}" for variant, value in variants.items()])
+    for variant, result in variants.items():
+        d = parse_deviceinfo(text.split('\n'), 'device-bq-paella', kernel=variant)
+        # note: the python code from pmb only strips one variant, the shell code in packaging strips all variants
+        assert f'{field}_{variant}' not in d
+        assert field in d
+        assert d[field] == result
+
+
 def test_get_deviceinfo_from_repo():
     config.try_load_file()
     dev = get_device('sdm845-oneplus-enchilada')
