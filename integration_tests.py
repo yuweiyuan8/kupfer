@@ -8,7 +8,7 @@ from config.state import config, CONFIG_DEFAULTS
 from constants import SRCINFO_METADATA_FILE
 from exec.file import get_temp_dir
 from logger import setup_logging
-from packages.cli import cmd_clean, cmd_update
+from packages.cli import cmd_build, cmd_clean, cmd_update
 from utils import git_get_branch
 
 tempdir = None
@@ -52,3 +52,17 @@ def test_packages_clean(ctx: click.Context):
     if not glob(os.path.join(config.get_path('pkgbuilds'), '*', '*', SRCINFO_METADATA_FILE)):
         ctx.invoke(cmd_update, non_interactive=True)
     ctx.invoke(cmd_clean, what=['git'], force=True)
+
+
+def build_pkgs(_ctx: click.Context, query: list[str], arch: str = 'aarch64'):
+    _ctx.invoke(cmd_build, paths=query, arch=arch)
+
+
+def test_packages_build_by_path(ctx: click.Context):
+    name = 'device/device-sdm845-oneplus-enchilada'
+    build_pkgs(ctx, [name])
+
+
+def test_split_package_build_by_name(ctx: click.Context):
+    name = 'device-sdm845-xiaomi-beryllium-ebbg'
+    build_pkgs(ctx, [name])
