@@ -169,7 +169,9 @@ def _pmos_sanity_check(info: dict[str, str], device_name: str):
         codename = codename[7:]
     # kupfer prepends the SoC
     codename_alternative = codename.split('-', maxsplit=1)[1] if codename.count('-') > 1 else codename
-    if "codename" not in info or (codename != info["codename"] and codename_alternative != info["codename"]):
+    _codename = info.get('codename', None)
+    if not _codename or not (_codename in [codename, codename_alternative] or codename.startswith(_codename) or
+                             codename_alternative.startswith(_codename)):
         raise RuntimeError(f"Please add 'deviceinfo_codename=\"{codename}\"' "
                            f"to: {path}")
 

@@ -128,7 +128,8 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
     if scan_all:
         devices = get_devices(pkgbuilds=pkgbuilds, lazy=lazy)
         if name not in devices:
-            raise Exception(f'Unknown device {name}!')
+            raise Exception(f'Unknown device {name}!\n'
+                            f'Available: {list(devices.keys())}')
         return devices[name]
     else:
         pkgname = f'device-{name}'
@@ -143,7 +144,8 @@ def get_device(name: str, pkgbuilds: Optional[dict[str, Pkgbuild]] = None, lazy:
                 init_pkgbuilds()
                 relative_path = os.path.join('device', pkgname)
                 if not os.path.exists(os.path.join(config.get_path('pkgbuilds'), relative_path)):
-                    raise Exception(f'unknown device "{name}": pkgbuilds/{relative_path} doesn\'t exist.')
+                    logging.debug(f'Exact device pkgbuild path "pkgbuilds/{relative_path}" doesn\'t exist, scanning entire repo')
+                    return get_device(name, pkgbuilds=pkgbuilds, lazy=lazy, scan_all=True)
                 pkgbuild = [p for p in get_pkgbuild_by_path(relative_path, lazy=lazy, _config=config) if p.name == pkgname][0]
         device = parse_device_pkg(pkgbuild)
         if lazy:
