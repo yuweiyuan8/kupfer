@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 
-from typing import Optional
+from typing import ClassVar, Optional
 
 from config.state import config
 from constants import MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE
@@ -16,15 +16,32 @@ from utils import sha256sum
 SRCINFO_CHECKSUM_FILES = ['PKGBUILD', SRCINFO_FILE]
 
 
-class SrcinfoMetaFile(DataClass):
+class JsonFile(DataClass):
+
+    _filename: ClassVar[str]
+    _relative_path: str
+
+    def toJSON(self) -> str:
+        'Returns a json representation, with private keys that start with "_" filtered out'
+        return json.dumps({key: val for key, val in self.toDict().items() if not key.startswith('_')}, indent=2)
+
+    def write(self):
+        'Write the filtered json representation to disk'
+        filepath = os.path.join(config.get_path('pkgbuilds'), self._relative_path, self._filename)
+        logging.debug(f'{self._relative_path}: writing {self._filename}')
+        with open(filepath, 'w') as fd:
+            fd.write(self.toJSON())
+
+
+class SrcinfoMetaFile(JsonFile):
 
     checksums: dict[str, str]
     build_mode: Optional[str]
     build_nodeps: Optional[bool]
     src_initialised: Optional[str]
 
-    _relative_path: str
     _changed: bool
+    _filename: ClassVar[str] = SRCINFO_METADATA_FILE
 
     @staticmethod
     def parse_existing(relative_pkg_dir: str) -> SrcinfoMetaFile:
@@ -164,14 +181,3 @@ class SrcinfoMetaFile(DataClass):
                 logging.debug(f'{self._relative_path}: Checksum for file "{filename}" doesn\'t match')
                 return False
         return True
-
-    def toJSON(self) -> str:
-        'Returns a json representation, with private keys that start with "_" filtered out'
-        return json.dumps({key: val for key, val in self.toDict().items() if not key.startswith('_')}, indent=2)
-
-    def write(self):
-        'Write the filtered json representation to disk as srcinfo_meta.json'
-        filepath = os.path.join(config.get_path('pkgbuilds'), self._relative_path, SRCINFO_METADATA_FILE)
-        logging.debug(f'{self._relative_path}: writing {SRCINFO_METADATA_FILE}')
-        with open(filepath, 'w') as fd:
-            fd.write(self.toJSON())
