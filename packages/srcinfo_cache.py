@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Optional
 
 from config.state import config
 from constants import MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE
@@ -32,6 +32,23 @@ class JsonFile(DataClass):
         with open(filepath, 'w') as fd:
             fd.write(self.toJSON())
 
+    @classmethod
+    def _read_file(cls, relative_path) -> Optional[dict]:
+        pkgdir = os.path.join(config.get_path('pkgbuilds'), relative_path)
+        filepath = os.path.join(pkgdir, cls._filename)
+        if not os.path.exists(filepath):
+            raise Exception(f"{relative_path}: {cls._filename} doesn't exist")
+        with open(filepath, 'r') as fd:
+            contents = json.load(fd)
+        return contents
+
+    def read(self) -> Optional[dict[str, Any]]:
+        """
+        Try reading and parsing the JSON file. Due to the way this class works, it should be a dict (or empty).
+        No error handling is provided, bring your own try/catch!
+        """
+        return type(self)._read_file(self._relative_path)
+
 
 class SrcinfoMetaFile(JsonFile):
 
@@ -46,12 +63,7 @@ class SrcinfoMetaFile(JsonFile):
     @staticmethod
     def parse_existing(relative_pkg_dir: str) -> SrcinfoMetaFile:
         'tries to parse the srcinfo_meta.json file in the specified pkgbuild dir'
-        pkgdir = os.path.join(config.get_path('pkgbuilds'), relative_pkg_dir)
-        srcinfo_meta_file = os.path.join(pkgdir, SRCINFO_METADATA_FILE)
-        if not os.path.exists(srcinfo_meta_file):
-            raise Exception(f"{relative_pkg_dir}: {SRCINFO_METADATA_FILE} doesn't exist")
-        with open(srcinfo_meta_file, 'r') as meta_fd:
-            metadata_raw = json.load(meta_fd)
+        metadata_raw = SrcinfoMetaFile._read_file(relative_pkg_dir)
         defaults = {'src_initialised': None}
         return SrcinfoMetaFile.fromDict(defaults | metadata_raw | {
             '_relative_path': relative_pkg_dir,
@@ -78,7 +90,7 @@ class SrcinfoMetaFile(JsonFile):
         try:
             metadata = SrcinfoMetaFile.parse_existing(relative_pkg_dir)
         except Exception as ex:
-            logging.debug(f"{relative_pkg_dir}: something went wrong parsing json from {SRCINFO_METADATA_FILE},"
+            logging.debug(f"{relative_pkg_dir}: something went wrong parsing json from {SrcinfoMetaFile._filename},"
                           f"running `makepkg --printsrcinfo` instead instead: {ex}")
             return SrcinfoMetaFile.generate_new(relative_pkg_dir, write=write)
         # if for whatever reason only the SRCINFO got deleted but PKGBUILD has not been modified,
