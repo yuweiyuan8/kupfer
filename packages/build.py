@@ -412,9 +412,9 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
     cache = package.srcinfo_cache
     assert cache
     # catch cache._changed: if the PKGBUILD changed whatsoever, that's an indicator the sources might be changed
-    if lazy and not cache._changed and cache.src_initialised and cache.src_initialised == cache.checksums['PKGBUILD']:
+    if lazy and not cache._changed and cache.is_src_initialised():
         if cache.validate_checksums():
-            logging.debug(f"{package.path}: Sources already set up.")
+            logging.info(f"{package.path}: Sources already set up.")
             return
     makepkg_setup = ' '.join(MAKEPKG_CMD + [
         '--nodeps',
@@ -438,9 +438,8 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
         raise Exception(f'{package.path}: Failed to setup sources, exit code: {result.returncode}')
-    cache.refresh_all(write=False)
-    cache.src_initialised = cache.checksums['PKGBUILD']
-    cache.write()
+    cache.refresh_all(write=True)
+    cache.write_src_initialised()
     old_version = package.version
     package.refresh_sources()
     if package.version != old_version:

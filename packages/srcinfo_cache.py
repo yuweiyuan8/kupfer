@@ -8,7 +8,7 @@ import subprocess
 from typing import Any, ClassVar, Optional
 
 from config.state import config
-from constants import MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE
+from constants import MAKEPKG_CMD, SRCINFO_FILE, SRCINFO_METADATA_FILE, SRCINFO_INITIALISED_FILE
 from dataclass import DataClass
 from exec.cmd import run_cmd
 from utils import sha256sum
@@ -50,12 +50,27 @@ class JsonFile(DataClass):
         return type(self)._read_file(self._relative_path)
 
 
+class SrcInitialisedFile(JsonFile):
+
+    PKGBUILD: str
+    _filename: ClassVar[str] = SRCINFO_INITIALISED_FILE
+
+    def __init__(self, relative_path: str, raise_exception: bool = False):
+        self._relative_path = relative_path
+        try:
+            content = self.read()
+            assert isinstance(content, dict)
+            self.update(content)
+        except Exception as ex:
+            if raise_exception:
+                raise ex
+
+
 class SrcinfoMetaFile(JsonFile):
 
     checksums: dict[str, str]
     build_mode: Optional[str]
     build_nodeps: Optional[bool]
-    src_initialised: Optional[str]
 
     _changed: bool
     _filename: ClassVar[str] = SRCINFO_METADATA_FILE
@@ -64,8 +79,7 @@ class SrcinfoMetaFile(JsonFile):
     def parse_existing(relative_pkg_dir: str) -> SrcinfoMetaFile:
         'tries to parse the srcinfo_meta.json file in the specified pkgbuild dir'
         metadata_raw = SrcinfoMetaFile._read_file(relative_pkg_dir)
-        defaults = {'src_initialised': None}
-        return SrcinfoMetaFile.fromDict(defaults | metadata_raw | {
+        return SrcinfoMetaFile.fromDict(metadata_raw | {
             '_relative_path': relative_pkg_dir,
             '_changed': False,
         })
@@ -79,7 +93,6 @@ class SrcinfoMetaFile(JsonFile):
             'build_mode': '',
             'build_nodeps': None,
             'checksums': {},
-            'src_initialised': None,
         })
         return s, s.refresh_all()
 
@@ -193,3 +206,27 @@ class SrcinfoMetaFile(JsonFile):
                 logging.debug(f'{self._relative_path}: Checksum for file "{filename}" doesn\'t match')
                 return False
         return True
+
+    def is_src_initialised(self) -> bool:
+        checksum = self.checksums["PKGBUILD"]
+        assert checksum
+        try:
+            initfile = SrcInitialisedFile(self._relative_path, raise_exception=True)
+            if "PKGBUILD" not in initfile:
+                raise Exception("'PKGBUILD' not in parser output")
+            initialised_checksum = initfile.PKGBUILD
+        except Exception as ex:
+            logging.debug(f"{self._relative_path}: Couldn't read or parse {SRCINFO_INITIALISED_FILE}: {ex}")
+            initialised_checksum = None
+        result = checksum == initialised_checksum
+        if initialised_checksum and not result:
+            logging.debug("Sources were set up for a different version. "
+                          f"Current PKGBUILD checksum: {checksum}; "
+                          f"Initialised for: {initialised_checksum}")
+        return result
+
+    def write_src_initialised(self):
+        initfile = SrcInitialisedFile(self._relative_path)
+        self.refresh_checksums()
+        initfile.PKGBUILD = self.checksums["PKGBUILD"]
+        initfile.write()
