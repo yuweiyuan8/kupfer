@@ -213,7 +213,7 @@ def add_file_to_repo(file_path: str, repo_name: str, arch: Arch, remove_original
     # clean up same name package from pacman cache
     cache_file = os.path.join(pacman_cache_dir, file_name)
     if os.path.exists(cache_file):
-        logging.debug("Removing cached package file {cache_file}")
+        logging.debug(f"Removing cached package file {cache_file}")
         remove_file(cache_file)
     cmd = [
         'repo-add',
@@ -485,7 +485,7 @@ def build_package(
             clean_chroot=clean_chroot,
         )
     if not package.mode:
-        logging.warning('Package {package.path} has no _mode set, assuming "host"')
+        logging.warning(f'Package {package.path} has no _mode set, assuming "host"')
     cross = foreign_arch and package.mode == 'cross' and enable_crosscompile
 
     if cross:
