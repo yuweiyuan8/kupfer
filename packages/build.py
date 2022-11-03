@@ -569,6 +569,14 @@ def get_dependants(
     return to_add
 
 
+def get_pkg_names_str(pkgs: Iterable[Pkgbuild]) -> str:
+    return ', '.join(x.name for x in pkgs)
+
+
+def get_pkg_levels_str(pkg_levels: Iterable[Iterable[Pkgbuild]]):
+    return '\n'.join(f'{i}: {get_pkg_names_str(level)}' for i, level in enumerate(pkg_levels))
+
+
 def get_unbuilt_package_levels(
     packages: Iterable[Pkgbuild],
     arch: Arch,
@@ -585,17 +593,32 @@ def get_unbuilt_package_levels(
     package_levels = generate_dependency_chain(repo, set(packages).union(dependants))
     build_names = set[str]()
     build_levels = list[set[Pkgbuild]]()
+    includes_dependants = " (includes dependants)" if rebuild_dependants else ""
+    logging.info(f"Checking for unbuilt packages in dependency order{includes_dependants}:\n{get_pkg_levels_str(package_levels)}")
     i = 0
     for level_packages in package_levels:
         level = set[Pkgbuild]()
+
+        def add_to_level(pkg, level, reason=''):
+            if reason:
+                reason = f': {reason}'
+            logging.info(f"Level {i}: Adding {package.path}{reason}")
+            level.add(package)
+            build_names.update(package.names())
+
         for package in level_packages:
-            if ((force and package in packages) or (rebuild_dependants and package in dependants) or
-                    not check_package_version_built(package, arch, try_download=try_download, refresh_sources=refresh_sources)):
-                level.add(package)
-                build_names.update(package.names())
+            if (force and package in packages):
+                add_to_level(package, level, 'query match and force=True')
+            elif rebuild_dependants and package in dependants:
+                add_to_level(package, level, 'package is a dependant, dependant-rebuilds requested')
+            elif not check_package_version_built(package, arch, try_download=try_download, refresh_sources=refresh_sources):
+                add_to_level(package, level, 'package unbuilt')
+            else:
+                logging.info(f"Level {i}: {package.path}: Package doesn't need [re]building")
+
         if level:
             build_levels.append(level)
-            logging.debug(f'Adding to level {i}:' + '\n' + ('\n'.join([p.name for p in level])))
+            logging.debug(f'Finished checking level {i}. Adding unbuilt pkgs: {get_pkg_names_str(level)}')
             i += 1
     return build_levels
 
@@ -627,9 +650,11 @@ def build_packages(
         logging.info('Everything built already')
         return
 
+    logging.info(f"Build plan made:\n{get_pkg_levels_str(build_levels)}")
+
     files = []
     for level, need_build in enumerate(build_levels):
-        logging.info(f"(Level {level}) Building {', '.join([x.name for x in need_build])}")
+        logging.info(f"(Level {level}) Building {get_pkg_names_str(need_build)}")
         for package in need_build:
             base = package.pkgbase if isinstance(package, SubPkgbuild) else package
             assert isinstance(base, Pkgbase)
