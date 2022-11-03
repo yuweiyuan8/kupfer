@@ -494,7 +494,7 @@ def build_package(
         if enable_ccache:
             env['PATH'] = f"/usr/lib/ccache:{env['PATH']}"
             native_chroot.mount_ccache(user=build_user)
-        logging.info('Setting up dependencies for cross-compilation')
+        logging.info(f'{package.path}: Setting up dependencies for cross-compilation')
         # include crossdirect for ccache symlinks and qemu-user
         cross_deps = list(package.makedepends) if package.nodeps else (deps + CROSSDIRECT_PKGS + [f"{GCC_HOSTSPECS[native_chroot.arch][arch]}-gcc"])
         results = native_chroot.try_install_packages(cross_deps)
@@ -526,7 +526,7 @@ def build_package(
             dep_install = target_chroot.try_install_packages(deps, allow_fail=False)
             failed_deps = [name for name, res in dep_install.items() if res.returncode != 0]  # type: ignore[union-attr]
             if failed_deps:
-                raise Exception(f'Dependencies failed to install: {failed_deps}')
+                raise Exception(f'{package.path}: Dependencies failed to install: {failed_deps}')
 
     if enable_ccache:
         build_root.mount_ccache(user=build_user)
