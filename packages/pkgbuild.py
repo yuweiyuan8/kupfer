@@ -294,7 +294,11 @@ def parse_pkgbuild(
     if mode not in ['host', 'cross']:
         err = 'an invalid' if mode is not None else 'no'
         err_end = f": {repr(mode)}" if mode is not None else "."
-        raise Exception(f'{relative_pkg_dir}/PKGBUILD has {err} mode configured{err_end}')
+        msg = f'{relative_pkg_dir}/PKGBUILD has {err} mode configured{err_end}'
+        if mode is None:
+            logging.warning(msg)
+        else:
+            raise Exception(msg)
 
     base_package = Pkgbase(relative_pkg_dir, sources_refreshed=sources_refreshed, srcinfo_cache=srcinfo_cache)
     base_package.mode = mode

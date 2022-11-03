@@ -484,6 +484,8 @@ def build_package(
             extra_packages=['base-devel'] + CROSSDIRECT_PKGS,
             clean_chroot=clean_chroot,
         )
+    if not package.mode:
+        logging.warning('Package {package.path} has no _mode set, assuming "host"')
     cross = foreign_arch and package.mode == 'cross' and enable_crosscompile
 
     if cross:
