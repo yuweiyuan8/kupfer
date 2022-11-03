@@ -260,7 +260,6 @@ class Chroot(AbstractChroot):
         rel_target = 'var/cache/pacman/pkg'
         makedir(shared_cache)
         root_makedir(self.get_path(rel_target))
-        print(self.get_path(rel_target))
         return self.mount(
             shared_cache,
             rel_target,
