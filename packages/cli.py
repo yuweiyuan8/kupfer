@@ -56,9 +56,10 @@ non_interactive_flag = click.option('--non-interactive', is_flag=True)
 @cmd_packages.command(name='update')
 @non_interactive_flag
 @click.option('--switch-branch', is_flag=True, help="Force the branch to be corrected even in non-interactive mode")
-def cmd_update(non_interactive: bool = False, switch_branch: bool = False):
+@click.option('--discard-changes', is_flag=True, help="When switching branches, discard any locally changed conflicting files")
+def cmd_update(non_interactive: bool = False, switch_branch: bool = False, discard_changes: bool = False):
     """Update PKGBUILDs git repo"""
-    init_pkgbuilds(interactive=not non_interactive, lazy=False, update=True, switch_branch=switch_branch)
+    init_pkgbuilds(interactive=not non_interactive, lazy=False, update=True, switch_branch=switch_branch, discard_changes=discard_changes)
     logging.info("Refreshing SRCINFO caches")
     discover_pkgbuilds(lazy=False)
 

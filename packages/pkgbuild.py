@@ -12,6 +12,7 @@ from config.state import config, ConfigStateHolder
 from constants import REPOSITORIES
 from constants import Arch
 from distro.package import PackageInfo
+from exec.file import remove_file
 from logger import setup_logging
 from utils import git, git_get_branch
 from wrapper import check_programs_wrap
@@ -19,7 +20,15 @@ from wrapper import check_programs_wrap
 from .srcinfo_cache import SrcinfoMetaFile
 
 
-def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=False, update=True, switch_branch: bool = False):
+def clone_pkgbuilds(
+    pkgbuilds_dir: str,
+    repo_url: str,
+    branch: str,
+    interactive=False,
+    update=True,
+    switch_branch: bool = False,
+    discard_changes: bool = False,
+):
     check_programs_wrap(['git'])
     git_dir = os.path.join(pkgbuilds_dir, '.git')
     if not os.path.exists(git_dir):
@@ -35,31 +44,72 @@ def clone_pkgbuilds(pkgbuilds_dir: str, repo_url: str, branch: str, interactive=
                 result = git(['remote', 'update'], dir=pkgbuilds_dir)
                 if result.returncode != 0:
                     raise Exception('failed updating PKGBUILDs branches')
-                result = git(['switch', branch], dir=pkgbuilds_dir)
+                result = git(['switch', *(['-f'] if discard_changes else []), branch], dir=pkgbuilds_dir)
                 if result.returncode != 0:
                     raise Exception('failed switching PKGBUILDs branches')
             logging.warning('Hint: you can use `kupferbootstrap packages update` to switch branches')
 
         if update:
             if interactive:
-                if not click.confirm('Would you like to try updating the PKGBUILDs repo?'):
+                if not click.confirm('Would you like to try updating the PKGBUILDs repo?', default=True):
                     return
-            result = git(['pull'], dir=pkgbuilds_dir)
+            result = git(['fetch'], dir=pkgbuilds_dir)
             if result.returncode != 0:
-                raise Exception('failed to update pkgbuilds')
+                raise Exception("Failed to fetch updates with git")
+
+            pull_cmd = ['pull', '--ff-only']
+            result = git(pull_cmd, dir=pkgbuilds_dir)
+            if result.returncode != 0:
+                if discard_changes:
+                    logging.info("git pull failed, detecting conflicting changes")
+                    # '@{u}' is a git placeholder for the latest upstream commit
+                    result = git(['diff', '--name-only', '--diff-filter=UD', '@{u}'], capture_output=True, dir=pkgbuilds_dir)
+                    result.check_returncode()
+                    if result.stdout:
+                        logging.info("Discarding conflicting changes")
+                        for f in result.stdout.decode().split('\n'):
+                            path = os.path.join(pkgbuilds_dir, f)
+                            if not os.path.exists(path):
+                                continue
+                            result = git(['checkout', '--', f], dir=pkgbuilds_dir, capture_output=True)
+                            if result.returncode != 0:
+                                logging.debug(f'git checkout of file "{f}" failed; removing.')
+                                remove_file(path)
+                        logging.info("Retrying git pull")
+                        result = git(pull_cmd, dir=pkgbuilds_dir)
+                        if result.returncode != 0:
+                            logging.info("Last resort: git reset --hard")
+                            result = git(['reset', '--hard', '@{u}'], capture_output=True, dir=pkgbuilds_dir)
+                        if result.returncode == 0:
+                            return
+                raise Exception('`git pull` failed to update pkgbuilds')
 
 
 _pkgbuilds_initialised: bool = False
 
 
-def init_pkgbuilds(interactive=False, lazy: bool = True, update: bool = False, switch_branch: bool = False):
+def init_pkgbuilds(
+    interactive=False,
+    lazy: bool = True,
+    update: bool = False,
+    switch_branch: bool = False,
+    discard_changes: bool = False,
+):
     global _pkgbuilds_initialised
     if lazy and _pkgbuilds_initialised:
         return
     pkgbuilds_dir = config.get_path('pkgbuilds')
     repo_url = config.file.pkgbuilds.git_repo
     branch = config.file.pkgbuilds.git_branch
-    clone_pkgbuilds(pkgbuilds_dir, repo_url, branch, interactive=interactive, update=update, switch_branch=switch_branch)
+    clone_pkgbuilds(
+        pkgbuilds_dir,
+        repo_url,
+        branch,
+        interactive=interactive,
+        update=update,
+        switch_branch=switch_branch,
+        discard_changes=discard_changes,
+    )
     _pkgbuilds_initialised = True
 
 

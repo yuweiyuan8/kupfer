@@ -41,7 +41,7 @@ def test_packages_update(ctx: click.Context):
     for branch, may_fail in branches.items():
         config.file.pkgbuilds.git_branch = branch
         try:
-            ctx.invoke(cmd_update, non_interactive=True, switch_branch=True)
+            ctx.invoke(cmd_update, non_interactive=True, switch_branch=True, discard_changes=True)
         except Exception as ex:
             print(f'may_fail: {may_fail}; Exception: {ex}')
             if not may_fail:
