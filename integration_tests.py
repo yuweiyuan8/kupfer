@@ -3,9 +3,11 @@ import os
 import pytest
 
 from glob import glob
+from subprocess import CompletedProcess
 
 from config.state import config, CONFIG_DEFAULTS
 from constants import SRCINFO_METADATA_FILE
+from exec.cmd import run_cmd
 from exec.file import get_temp_dir
 from logger import setup_logging
 from packages.cli import cmd_build, cmd_clean, cmd_update
@@ -44,6 +46,10 @@ def test_packages_update(ctx: click.Context):
             print(f'may_fail: {may_fail}; Exception: {ex}')
             if not may_fail:
                 raise ex
+            # check branch really doesn't exist
+            res = run_cmd(f"git ls-remote {CONFIG_DEFAULTS.pkgbuilds.git_repo} 'refs/heads/*' | grep 'refs/heads/{branch}'")
+            assert isinstance(res, CompletedProcess)
+            assert res.returncode != 0
             continue
         assert git_get_branch(pkgbuilds_path) == branch
 
