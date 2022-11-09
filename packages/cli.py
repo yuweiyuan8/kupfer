@@ -26,6 +26,7 @@ def build(
     rebuild_dependants: bool = False,
     try_download: bool = False,
 ):
+    config.enforce_config_loaded()
     enforce_wrap()
     arch = arch or get_profile_device(hint_or_set_arch=True).arch
 
@@ -202,6 +203,7 @@ def cmd_list():
 @click.argument('paths', nargs=-1)
 def cmd_check(paths):
     """Check that specified PKGBUILDs are formatted correctly"""
+    config.enforce_config_loaded()
     check_programs_wrap(['makepkg'])
 
     def check_quoteworthy(s: str) -> bool:
