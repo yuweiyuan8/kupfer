@@ -60,9 +60,9 @@ ALARM_REPOS = {
 BASE_DISTROS: dict[DistroArch, dict[str, dict[str, str]]] = {
     'x86_64': {
         'repos': {
-            'core': 'http://ftp.halifax.rwth-aachen.de/archlinux/$repo/os/$arch',
-            'extra': 'http://ftp.halifax.rwth-aachen.de/archlinux/$repo/os/$arch',
-            'community': 'http://ftp.halifax.rwth-aachen.de/archlinux/$repo/os/$arch',
+            'core': 'https://geo.mirror.pkgbuild.com/$repo/os/$arch',
+            'extra': 'https://geo.mirror.pkgbuild.com/$repo/os/$arch',
+            'community': 'https://geo.mirror.pkgbuild.com/$repo/os/$arch',
         },
     },
     'aarch64': {
