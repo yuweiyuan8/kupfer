@@ -21,12 +21,25 @@ setup_logging(True)
 @pytest.fixture()
 def ctx() -> click.Context:
     global tempdir
+    if not tempdir:
+        tempdir = get_temp_dir()
     if not os.environ.get('INTEGRATION_TESTS_USE_GLOBAL_CONFIG', 'false').lower() == 'true':
-        if not tempdir:
-            tempdir = get_temp_dir()
         config.file.paths.update(CONFIG_DEFAULTS.paths | {'cache_dir': tempdir})
+    config_path = os.path.join(tempdir, 'kupferbootstrap.toml')
+    config.runtime.config_file = config_path
+    if not os.path.exists(config_path):
+        config.write()
+    config.try_load_file(config_path)
     print(f'cache_dir: {config.file.paths.cache_dir}')
     return click.Context(click.Command('integration_tests'))
+
+
+def test_config_load(ctx: click.Context):
+    path = config.runtime.config_file
+    assert path
+    assert path.startswith('/tmp/')
+    assert os.path.exists(path)
+    config.enforce_config_loaded()
 
 
 def test_packages_update(ctx: click.Context):
