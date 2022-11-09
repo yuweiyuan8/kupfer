@@ -210,6 +210,7 @@ class ConfigStateHolder:
         self._profile_cache = None
         try:
             self.file = Config.fromDict(parse_file(config_file=config_file, base=base), validate=True)
+            self.file_state.exception = None
         except Exception as ex:
             self.file_state.exception = ex
         self.file_state.load_finished = True
