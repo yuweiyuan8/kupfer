@@ -84,7 +84,7 @@ def merge_configs(conf_new: Mapping[str, dict], conf_base={}, warn_missing_defau
     Pass `conf_base={}` to get a sanitized version of `conf_new`.
     NOTE: `conf_base` is NOT checked for invalid keys. Sanitize beforehand.
     """
-    parsed = deepcopy(conf_base)
+    parsed = deepcopy(dict(conf_base))
 
     for outer_name, outer_conf in deepcopy(conf_new).items():
         # only handle known config sections
@@ -113,7 +113,7 @@ def merge_configs(conf_new: Mapping[str, dict], conf_base={}, warn_missing_defau
                         if profile_name == 'current':
                             parsed[outer_name][profile_name] = profile_conf
                         else:
-                            logging.warning('Skipped key "{profile_name}" in profile section: only subsections and "current" allowed')
+                            logging.warning(f'Skipped key "{profile_name}" in profile section: only subsections and "current" allowed')
                         continue
 
                     #  init profile
@@ -134,7 +134,7 @@ def merge_configs(conf_new: Mapping[str, dict], conf_base={}, warn_missing_defau
                 # handle generic inner config dict
                 for inner_name, inner_conf in outer_conf.items():
                     if inner_name not in CONFIG_DEFAULTS[outer_name].keys():
-                        logging.warning(f'Skipped unknown config item "{inner_name}" in "{outer_name}"')
+                        logging.warning(f'Skipped unknown config item "{inner_name}" in section "{outer_name}"')
                         continue
                     parsed[outer_name][inner_name] = inner_conf
 
@@ -190,7 +190,7 @@ class ConfigStateHolder:
     # runtime config not persisted anywhere
     runtime: RuntimeConfiguration
     file_state: ConfigLoadState
-    _profile_cache: dict[str, Profile]
+    _profile_cache: Optional[dict[str, Profile]]
 
     def __init__(self, file_conf_path: Optional[str] = None, runtime_conf={}, file_conf_base: dict = {}):
         """init a stateholder, optionally loading `file_conf_path`"""
@@ -204,12 +204,12 @@ class ConfigStateHolder:
         if file_conf_path:
             self.try_load_file(file_conf_path)
 
-    def try_load_file(self, config_file=None, base=CONFIG_DEFAULTS):
+    def try_load_file(self, config_file=None, base=CONFIG_DEFAULTS_DICT):
         config_file = config_file or CONFIG_DEFAULT_PATH
         self.runtime.config_file = config_file
         self._profile_cache = None
         try:
-            self.file = parse_file(config_file=config_file, base=base)
+            self.file = Config.fromDict(parse_file(config_file=config_file, base=base), validate=True)
         except Exception as ex:
             self.file_state.exception = ex
         self.file_state.load_finished = True

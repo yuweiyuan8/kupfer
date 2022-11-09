@@ -135,7 +135,7 @@ class Config(DataClass):
                 raise Exception(f'values contained unknown keys: {list(values.keys())}')
             _vals |= values
 
-        return Config(**_vals, validate=validate)
+        return Config(_vals, validate=validate)
 
 
 @munchclass()

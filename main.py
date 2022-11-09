@@ -30,6 +30,8 @@ def cli(verbose: bool = False, config_file: Optional[str] = None, wrapper_overri
     config.runtime.no_wrap = wrapper_override is False
     config.runtime.error_shell = error_shell
     config.try_load_file(config_file)
+    if config.file_state.exception:
+        logging.warning(f"Config file couldn't be loaded: {config.file_state.exception}")
     if wrapper_override:
         enforce_wrap()
 
