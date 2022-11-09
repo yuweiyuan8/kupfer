@@ -5,7 +5,7 @@ import pickle
 import toml
 
 from tempfile import mktemp, gettempdir as get_system_tempdir
-from typing import Optional
+from typing import Any, Optional
 
 from config.profile import PROFILE_DEFAULTS
 from config.scheme import Config, Profile
@@ -154,8 +154,16 @@ def test_config_save_modified(configstate_emptyfile: ConfigStateHolder):
     compare_to_defaults(load_toml_file(get_path_from_stateholder(c)), defaults_modified)
 
 
+def get_config_scheme(data: dict[str, Any], validate=True, allow_incomplete=False) -> Config:
+    """
+    helper func to ignore a false type error.
+    for some reason, mypy argues about DataClass.fromDict() instead of Config.fromDict() here
+    """
+    return Config.fromDict(data, validate=validate, allow_incomplete=allow_incomplete)  # type: ignore[call-arg]
+
+
 def test_config_scheme_defaults():
-    c = Config.fromDict(CONFIG_DEFAULTS, validate=True, allow_incomplete=False)
+    c = get_config_scheme(CONFIG_DEFAULTS, validate=True, allow_incomplete=False)
     assert c
     compare_to_defaults(c)
 
@@ -164,7 +172,7 @@ def test_config_scheme_modified():
     modifications = {'wrapper': {'type': 'none'}, 'build': {'crossdirect': False}}
     assert set(modifications.keys()).issubset(CONFIG_DEFAULTS.keys())
     d = {section_name: (section | modifications.get(section_name, {})) for section_name, section in CONFIG_DEFAULTS.items()}
-    c = Config.fromDict(d, validate=True, allow_incomplete=False)
+    c = get_config_scheme(d, validate=True, allow_incomplete=False)
     assert c
     assert c.build.crossdirect is False
     assert c.wrapper.type == 'none'

@@ -4,7 +4,7 @@ import os
 import subprocess
 from copy import deepcopy
 from shlex import quote as shell_quote
-from typing import ClassVar, Protocol, Union, Optional, Mapping
+from typing import ClassVar, Iterable, Protocol, Union, Optional, Mapping
 from uuid import uuid4
 
 from config.state import config
@@ -179,7 +179,7 @@ class Chroot(AbstractChroot):
             self.active_mounts.remove(relative_path)
         return result
 
-    def umount_many(self, relative_paths: list[str]):
+    def umount_many(self, relative_paths: Iterable[str]):
         # make sure paths start with '/'. Important: also copies the collection and casts to list, which will be sorted!
         mounts = [make_abs_path(path) for path in relative_paths]
         mounts.sort(reverse=True)

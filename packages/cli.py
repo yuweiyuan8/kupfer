@@ -224,7 +224,7 @@ def cmd_check(paths):
             is_git_package = True
 
         required_arches = ''
-        provided_arches = []
+        provided_arches: list[str] = []
 
         mode_key = '_mode'
         nodeps_key = '_nodeps'
