@@ -70,7 +70,9 @@ class DataClass(Munch):
                         value = parsed_number
                 if validate:
                     if not isinstance(value, _classes):
-                        raise Exception(f'key "{key}" has value of wrong type {_classes}: {value}')
+                        raise Exception(f'key "{key}" has value of wrong type! expected: '
+                                        f'{" ,".join([ c.__name__ for c in _classes])}; '
+                                        f'got: {type(value).__name__}; value: {value}')
             elif validate and not allow_extra:
                 raise Exception(f'Unknown key "{key}"')
             else:
