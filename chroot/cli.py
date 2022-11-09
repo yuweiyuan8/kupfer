@@ -2,6 +2,8 @@ import click
 import logging
 import os
 
+from typing import Optional
+
 from config.state import config
 from wrapper import enforce_wrap
 from devices.device import get_profile_device
@@ -21,7 +23,7 @@ CHROOT_TYPES = ['base', 'build', 'rootfs']
     default=None,
 )
 @click.pass_context
-def cmd_chroot(ctx: click.Context, type: str = 'build', name: str = None, enable_crossdirect=True):
+def cmd_chroot(ctx: click.Context, type: str = 'build', name: Optional[str] = None, enable_crossdirect=True):
     """Open a shell in a chroot. For rootfs NAME is a profile name, for others the architecture (e.g. aarch64)."""
 
     if type not in CHROOT_TYPES:

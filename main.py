@@ -24,7 +24,7 @@ from image.cli import cmd_image
 @verbose_option
 @config_option
 @nowrapper_option
-def cli(verbose: bool = False, config_file: str = None, wrapper_override: Optional[bool] = None, error_shell: bool = False):
+def cli(verbose: bool = False, config_file: Optional[str] = None, wrapper_override: Optional[bool] = None, error_shell: bool = False):
     setup_logging(verbose)
     config.runtime.verbose = verbose
     config.runtime.no_wrap = wrapper_override is False

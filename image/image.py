@@ -362,11 +362,11 @@ def cmd_image():
               is_flag=True,
               default=False,
               help='Skip creating image files for the partitions and directly work on the target block device.')
-def cmd_build(profile_name: str = None,
+def cmd_build(profile_name: Optional[str] = None,
               local_repos: bool = True,
               build_pkgs: bool = True,
               no_download_pkgs=False,
-              block_target: str = None,
+              block_target: Optional[str] = None,
               skip_part_images: bool = False):
     """
     Build a device image.
@@ -454,7 +454,7 @@ def cmd_build(profile_name: str = None,
 @cmd_image.command(name='inspect')
 @click.option('--shell', '-s', is_flag=True)
 @click.argument('profile', required=False)
-def cmd_inspect(profile: str = None, shell: bool = False):
+def cmd_inspect(profile: Optional[str] = None, shell: bool = False):
     """Open a shell in a device image"""
     config.enforce_profile_device_set()
     config.enforce_profile_flavour_set()

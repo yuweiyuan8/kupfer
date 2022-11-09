@@ -61,7 +61,7 @@ def make_abs_path(path: str) -> str:
     return '/' + path.lstrip('/')
 
 
-def get_chroot_path(chroot_name, override_basepath: str = None) -> str:
+def get_chroot_path(chroot_name, override_basepath: Optional[str] = None) -> str:
     base_path = config.get_path('chroots') if not override_basepath else override_basepath
     return os.path.join(base_path, chroot_name)
 

@@ -174,7 +174,7 @@ def parse_file(config_file: str, base: dict = CONFIG_DEFAULTS) -> dict:
 class ConfigLoadException(Exception):
     inner = None
 
-    def __init__(self, extra_msg='', inner_exception: Exception = None):
+    def __init__(self, extra_msg='', inner_exception: Optional[Exception] = None):
         msg: list[str] = ['Config load failed!']
         if extra_msg:
             msg.append(extra_msg)

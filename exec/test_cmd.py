@@ -3,6 +3,8 @@ import os
 import pwd
 import subprocess
 
+from typing import Optional
+
 from .cmd import run_cmd, run_root_cmd, generate_cmd_su
 
 
@@ -10,7 +12,7 @@ def get_username(id: int):
     return pwd.getpwuid(id).pw_name
 
 
-def run_func(f, expected_user: str = None, **kwargs):
+def run_func(f, expected_user: Optional[str] = None, **kwargs):
     current_uid = os.getuid()
     current_username = get_username(current_uid)
     target_uid = current_uid

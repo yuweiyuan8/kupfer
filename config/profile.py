@@ -1,6 +1,7 @@
 import logging
 
 from copy import deepcopy
+from typing import Optional
 
 from .scheme import Profile, SparseProfile
 
@@ -23,7 +24,7 @@ PROFILE_EMPTY: Profile = {key: None for key in PROFILE_DEFAULTS.keys()}  # type:
 def resolve_profile(
     name: str,
     sparse_profiles: dict[str, SparseProfile],
-    resolved: dict[str, Profile] = None,
+    resolved: Optional[dict[str, Profile]] = None,
     _visited=None,
 ) -> dict[str, Profile]:
     """

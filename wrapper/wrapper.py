@@ -3,7 +3,7 @@ import os
 import uuid
 import pathlib
 
-from typing import Protocol
+from typing import Optional, Protocol
 
 from config.state import config
 from config.state import dump_file as dump_config_file
@@ -37,7 +37,7 @@ class BaseWrapper(Wrapper):
     type: str
     wrapped_config_path: str
 
-    def __init__(self, random_id: str = None, name: str = None):
+    def __init__(self, random_id: Optional[str] = None, name: Optional[str] = None):
         self.uuid = str(random_id or uuid.uuid4())
         self.identifier = name or f'kupferbootstrap-{self.uuid}'
 
@@ -98,7 +98,7 @@ class BaseWrapper(Wrapper):
     def is_wrapped(self):
         return os.getenv(WRAPPER_ENV_VAR) == self.type.upper()
 
-    def get_bind_mounts_default(self, wrapped_config_path: str = None, ssh_dir: str = None, target_home: str = '/root'):
+    def get_bind_mounts_default(self, wrapped_config_path: Optional[str] = None, ssh_dir: Optional[str] = None, target_home: str = '/root'):
         wrapped_config_path = wrapped_config_path or self.wrapped_config_path
         ssh_dir = ssh_dir or os.path.join(pathlib.Path.home(), '.ssh')
         assert (wrapped_config_path)

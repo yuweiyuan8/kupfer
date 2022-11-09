@@ -30,7 +30,7 @@ class DeviceChroot(BuildChroot):
 
         clss.create_rootfs(self, reset, pacman_conf_target, active_previously)
 
-    def mount_rootfs(self, source_path: str, fs_type: str = None, options: list[str] = [], allow_overlay: bool = False):
+    def mount_rootfs(self, source_path: str, fs_type: Optional[str] = None, options: list[str] = [], allow_overlay: bool = False):
         if self.active:
             raise Exception(f'{self.name}: Chroot is marked as active, not mounting a rootfs over it.')
         if not os.path.exists(source_path):

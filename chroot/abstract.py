@@ -36,7 +36,7 @@ class AbstractChroot(Protocol):
         copy_base: bool,
         extra_repos: Mapping[str, RepoInfo],
         base_packages: list[str],
-        path_override: str = None,
+        path_override: Optional[str] = None,
     ):
         pass
 
@@ -87,10 +87,10 @@ class Chroot(AbstractChroot):
         self,
         name: str,
         arch: Arch,
-        copy_base: bool = None,
+        copy_base: Optional[bool] = None,
         extra_repos: Mapping[str, RepoInfo] = {},
         base_packages: list[str] = ['base', 'base-devel', 'git'],
-        path_override: str = None,
+        path_override: Optional[str] = None,
     ):
         self.uuid = uuid4()
         if copy_base is None:
@@ -138,7 +138,7 @@ class Chroot(AbstractChroot):
         absolute_source: str,
         relative_destination: str,
         options=['bind'],
-        fs_type: str = None,
+        fs_type: Optional[str] = None,
         fail_if_mounted: bool = True,
         mkdir: bool = True,
         strict_cache_consistency: bool = False,
@@ -294,7 +294,7 @@ class Chroot(AbstractChroot):
         root_write_file(makepkg_conf_path, makepkg_cross_conf)
         return makepkg_conf_path_relative
 
-    def write_pacman_conf(self, check_space: Optional[bool] = None, in_chroot: bool = True, absolute_path: str = None):
+    def write_pacman_conf(self, check_space: Optional[bool] = None, in_chroot: bool = True, absolute_path: Optional[str] = None):
         user = None
         group = None
         if check_space is None:

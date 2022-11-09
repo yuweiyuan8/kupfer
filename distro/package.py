@@ -22,7 +22,7 @@ class BinaryPackage(PackageInfo):
         name: str,
         version: str,
         filename: str,
-        resolved_url: str = None,
+        resolved_url: Optional[str] = None,
     ):
         self.name = name
         self.version = version

@@ -1,8 +1,10 @@
+from typing import Optional
+
 from constants import Arch, CFLAGS_ARCHES, CFLAGS_GENERAL, COMPILE_ARCHES, GCC_HOSTSPECS
 from config.state import config
 
 
-def generate_makepkg_conf(arch: Arch, cross: bool = False, chroot: str = None) -> str:
+def generate_makepkg_conf(arch: Arch, cross: bool = False, chroot: Optional[str] = None) -> str:
     """
     Generate a makepkg.conf. For use with crosscompiling, specify `cross=True` and pass as `chroot`
     the relative path inside the native chroot where the foreign chroot will be mounted.

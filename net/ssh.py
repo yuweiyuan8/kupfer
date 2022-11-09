@@ -51,7 +51,7 @@ def run_ssh_command(cmd: list[str] = [],
     return run_cmd(full_cmd)
 
 
-def scp_put_files(src: list[str], dst: str, user: str = None, host: str = SSH_DEFAULT_HOST, port: int = SSH_DEFAULT_PORT):
+def scp_put_files(src: list[str], dst: str, user: Optional[str] = None, host: str = SSH_DEFAULT_HOST, port: int = SSH_DEFAULT_PORT):
     check_programs_wrap(['scp'])
     if not user:
         user = config.get_profile()['username']

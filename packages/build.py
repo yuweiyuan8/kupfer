@@ -449,7 +449,7 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
 def build_package(
     package: Pkgbuild,
     arch: Arch,
-    repo_dir: str = None,
+    repo_dir: Optional[str] = None,
     enable_crosscompile: bool = True,
     enable_crossdirect: bool = True,
     enable_ccache: bool = True,

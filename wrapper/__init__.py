@@ -1,7 +1,7 @@
 import click
 import logging
 
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 from config.state import config
 from constants import Arch
@@ -14,21 +14,21 @@ wrapper_impls: dict[str, Wrapper] = {
 }
 
 
-def get_wrapper_type(wrapper_type: str = None):
+def get_wrapper_type(wrapper_type: Optional[str] = None):
     return wrapper_type or config.file.wrapper.type
 
 
-def get_wrapper_impl(wrapper_type: str = None) -> Wrapper:
+def get_wrapper_impl(wrapper_type: Optional[str] = None) -> Wrapper:
     return wrapper_impls[get_wrapper_type(wrapper_type)]
 
 
-def wrap(wrapper_type: str = None):
+def wrap(wrapper_type: Optional[str] = None):
     wrapper_type = get_wrapper_type(wrapper_type)
     if wrapper_type != 'none':
         get_wrapper_impl(wrapper_type).wrap()
 
 
-def is_wrapped(wrapper_type: str = None):
+def is_wrapped(wrapper_type: Optional[str] = None):
     wrapper_type = get_wrapper_type(wrapper_type)
     return wrapper_type != 'none' and get_wrapper_impl(wrapper_type).is_wrapped()
 
