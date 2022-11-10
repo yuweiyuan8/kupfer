@@ -5,7 +5,9 @@ sys.path.insert(0, os.path.abspath('../..'))
 extensions = [
     'sphinx_click',
     'sphinx.ext.autosummary',  # Create neat summary tables
+    'myst_parser'
 ]
+myst_all_links_external = True
 templates_path = ['templates']
 project = 'Kupfer👢strap'
 html_title = 'Kupferbootstrap'

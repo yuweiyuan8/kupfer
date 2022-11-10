@@ -1,8 +1,11 @@
-:orphan:
-:nosearch:
+---
+nosearch: true
+orphan: true
+---
 
 only used to trigger builds of the submodule docs!
 
+```{eval-rst}
 .. autosummary::
    :toctree: cli
    :template: command.rst
@@ -16,3 +19,4 @@ only used to trigger builds of the submodule docs!
     image
     net
     packages
+```

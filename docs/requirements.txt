@@ -1,3 +1,4 @@
 sphinx-click
+myst-parser
 # furo sphinx theme
 furo
