@@ -45,6 +45,9 @@ build_docker:
   stage: build
   image: docker:latest
   services: ['docker:dind']
+  variables:
+    DOCKER_DRIVER: vfs # overlay2 is not available on ZFS
+    DOCKER_TLS_CERTDIR: ""
   script:
     - 'docker build --pull -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}" -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}" .'
   only:
