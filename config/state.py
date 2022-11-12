@@ -61,6 +61,7 @@ CONFIG_RUNTIME_DEFAULTS: RuntimeConfiguration = RuntimeConfiguration.fromDict({
     'script_source_dir': None,
     'arch': None,
     'uid': None,
+    'progress_bars': None,
 })
 
 

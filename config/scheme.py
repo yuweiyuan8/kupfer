@@ -147,6 +147,7 @@ class RuntimeConfiguration(DataClass):
     script_source_dir: Optional[str]
     arch: Optional[Arch]
     uid: Optional[int]
+    progress_bars: Optional[bool]
 
 
 class ConfigLoadState(DataClass):

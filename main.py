@@ -6,7 +6,7 @@ import subprocess
 from traceback import format_exc, format_exception_only, format_tb
 from typing import Optional
 
-from logger import logging, setup_logging, verbose_option
+from logger import color_option, logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
 
 from config.cli import config, config_option, cmd_config
@@ -24,8 +24,15 @@ from image.cli import cmd_image
 @verbose_option
 @config_option
 @nowrapper_option
-def cli(verbose: bool = False, config_file: Optional[str] = None, wrapper_override: Optional[bool] = None, error_shell: bool = False):
-    setup_logging(verbose)
+@color_option
+def cli(
+    verbose: bool = False,
+    config_file: Optional[str] = None,
+    wrapper_override: Optional[bool] = None,
+    error_shell: bool = False,
+    force_colors: Optional[bool] = None,
+):
+    setup_logging(verbose, force_colors=force_colors)
     config.runtime.verbose = verbose
     config.runtime.no_wrap = wrapper_override is False
     config.runtime.error_shell = error_shell
