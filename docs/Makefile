@@ -10,7 +10,7 @@ clean:
 	rm -rf html source/cli .buildinfo .doctrees
 
 html:
-	sphinx-build $(buildargs)
+	sphinx-build $(SPHINXARGS) $(buildargs)
 
 serve: html
 	(cd html && python -m http.server 9999)

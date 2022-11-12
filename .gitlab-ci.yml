@@ -72,9 +72,9 @@ push_docker:
 .docs:
   image: "${CI_REGISTRY_IMAGE}:dev"
   before_script:
-    - pip install -r docs/requirements.txt
+    - pip install -r requirements.txt -r docs/requirements.txt
   script:
-    - (cd docs && make)
+    - (cd docs && SPHINXARGS='-W' make)
     - mv docs/html public
   artifacts:
     paths:
