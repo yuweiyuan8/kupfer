@@ -8,6 +8,7 @@ from typing import Optional
 
 from logger import color_option, logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
+from progressbar import progress_bars_option
 
 from config.cli import config, config_option, cmd_config
 from packages.cli import cmd_packages
@@ -25,15 +26,18 @@ from image.cli import cmd_image
 @config_option
 @nowrapper_option
 @color_option
+@progress_bars_option
 def cli(
     verbose: bool = False,
     config_file: Optional[str] = None,
     wrapper_override: Optional[bool] = None,
     error_shell: bool = False,
     force_colors: Optional[bool] = None,
+    force_progress_bars: Optional[bool] = None,
 ):
     setup_logging(verbose, force_colors=force_colors)
     config.runtime.verbose = verbose
+    config.runtime.progress_bars = force_progress_bars
     config.runtime.no_wrap = wrapper_override is False
     config.runtime.error_shell = error_shell
     config.try_load_file(config_file)

@@ -8,3 +8,4 @@ munch
 setuptools # required by munch
 requests
 python-dateutil
+enlighten
