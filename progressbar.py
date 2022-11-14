@@ -6,7 +6,7 @@ from typing import Hashable, Optional
 
 from config.state import config
 
-DEFAULT_OUTPUT = sys.stdout
+DEFAULT_OUTPUT = sys.stderr
 
 managers: dict[Hashable, Manager] = {}
 

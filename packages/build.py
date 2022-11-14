@@ -17,6 +17,7 @@ from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import get_kupfer_https, get_kupfer_local
 from distro.package import RemotePackage, LocalPackage
 from distro.repo import LocalRepo
+from progressbar import get_levels_bar
 from wrapper import check_programs_wrap, is_wrapped
 from utils import sha256sum
 
@@ -274,8 +275,8 @@ def add_package_to_repo(package: Pkgbuild, arch: Arch):
 
 
 def try_download_package(dest_file_path: str, package: Pkgbuild, arch: Arch) -> Optional[str]:
-    logging.debug(f"checking if we can download {package.name}")
     filename = os.path.basename(dest_file_path)
+    logging.debug(f"checking if we can download {filename}")
     pkgname = package.name
     repo_name = package.repo
     repos = get_kupfer_https(arch, scan=True).repos
@@ -635,17 +636,33 @@ def get_unbuilt_package_levels(
     includes_dependants = " (includes dependants)" if rebuild_dependants else ""
     logging.info(f"Checking for unbuilt packages ({arch}) in dependency order{includes_dependants}:\n{get_pkg_levels_str(package_levels)}")
     i = 0
-    for level_packages in package_levels:
+    total_levels = len(package_levels)
+    package_bar = get_levels_bar(
+        total=sum([len(lev) for lev in package_levels]),
+        desc=f"Checking pkgs ({arch})",
+        unit='pkgs',
+        fields={"levels_total": total_levels},
+        enable_rate=False,
+    )
+    counter_built = package_bar.add_subcounter('green')
+    counter_unbuilt = package_bar.add_subcounter('blue')
+    for level_num, level_packages in enumerate(package_levels):
+        level_num = level_num + 1
+        package_bar.update(0, level=level_num)
         level = set[Pkgbuild]()
+        if not level_packages:
+            continue
 
         def add_to_level(pkg, level, reason=''):
             if reason:
                 reason = f': {reason}'
-            logging.info(f"Level {i} ({arch}): Adding {package.path}{reason}")
+            counter_unbuilt.update()
+            logging.info(f"Level {level}/{total_levels} ({arch}): Adding {package.path}{reason}")
             level.add(package)
             build_names.update(package.names())
 
         for package in level_packages:
+            package_bar.update(0, name=package.path)
             if (force and package in packages):
                 add_to_level(package, level, 'query match and force=True')
             elif rebuild_dependants and package in dependants:
@@ -653,12 +670,14 @@ def get_unbuilt_package_levels(
             elif not check_package_version_built(package, arch, try_download=try_download, refresh_sources=refresh_sources):
                 add_to_level(package, level, 'package unbuilt')
             else:
-                logging.info(f"Level {i}: {package.path} ({arch}): Package doesn't need [re]building")
+                logging.info(f"Level {level_num}/{total_levels} ({arch}): {package.path}: Package doesn't need [re]building")
+                counter_built.update()
 
+        logging.debug(f'Finished checking level {level_num}/{total_levels} ({arch}). Adding unbuilt pkgs: {get_pkg_names_str(level)}')
         if level:
             build_levels.append(level)
-            logging.debug(f'Finished checking level {i}. Adding unbuilt pkgs: {get_pkg_names_str(level)}')
             i += 1
+    package_bar.close(clear=True)
     return build_levels
 
 
@@ -691,15 +710,27 @@ def build_packages(
 
     logging.info(f"Build plan made:\n{get_pkg_levels_str(build_levels)}")
 
+    total_levels = len(build_levels)
+    package_bar = get_levels_bar(
+        desc=f'Building pkgs ({arch})',
+        color='purple',
+        unit='pkgs',
+        total=sum([len(lev) for lev in build_levels]),
+        fields={"levels_total": total_levels},
+    )
     files = []
     updated_repos: set[str] = set()
     for level, need_build in enumerate(build_levels):
-        logging.info(f"(Level {level}) Building {get_pkg_names_str(need_build)}")
+        level = level + 1
+        package_bar.update(incr=0, name=None, level=level)
+        logging.info(f"(Level {level}/{total_levels}) Building {get_pkg_names_str(need_build)}")
         for package in need_build:
+            package_bar.update(incr=0, name=package.path)
             base = package.pkgbase if isinstance(package, SubPkgbuild) else package
             assert isinstance(base, Pkgbase)
             if package.is_built(arch):
                 logging.info(f"Skipping building {package.name} since it was already built this run as part of pkgbase {base.name}")
+                package_bar.update()
                 continue
             build_package(
                 package,
@@ -714,11 +745,14 @@ def build_packages(
             for _arch in ['any', arch]:
                 if _arch in base.arches:
                     base._built_for.add(_arch)
+            package_bar.update()
     # rescan affected repos
     local_repos = get_kupfer_local(arch, in_chroot=False, scan=False)
     for repo_name in updated_repos:
         assert repo_name in local_repos.repos
         local_repos.repos[repo_name].scan()
+
+    package_bar.close(clear=True)
     return files
 
 
