@@ -169,3 +169,16 @@ def sha256sum(filename):
         while n := f.readinto(mv):
             h.update(mv[:n])
     return h.hexdigest()
+
+
+def ellipsize(s: str, length: int = 25, padding: Optional[str] = None, ellipsis: str = '...', rjust: bool = False):
+    """
+    Ellipsize `s`, shortening it to `(length - len(ellipsis))` and appending `ellipsis` if `s` is longer than `length`.
+    If `padding` is non-empty and `s` is shorter than length, `s` is padded with `padding` until it's `length` long.
+    """
+    if len(s) > length:
+        return s[:length - len(ellipsis)] + ellipsis
+    if not padding:
+        return s
+    pad = s.rjust if rjust else s.ljust
+    return pad(length, padding)

@@ -6,6 +6,7 @@ from typing import Hashable, Optional
 
 from config.state import config
 
+BAR_PADDING = 25
 DEFAULT_OUTPUT = sys.stderr
 
 managers: dict[Hashable, Manager] = {}

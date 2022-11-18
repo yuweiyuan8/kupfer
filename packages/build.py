@@ -17,9 +17,9 @@ from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import get_kupfer_https, get_kupfer_local
 from distro.package import RemotePackage, LocalPackage
 from distro.repo import LocalRepo
-from progressbar import get_levels_bar
+from progressbar import BAR_PADDING, get_levels_bar
 from wrapper import check_programs_wrap, is_wrapped
-from utils import sha256sum
+from utils import ellipsize, sha256sum
 
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbase, Pkgbuild, SubPkgbuild
 
@@ -648,7 +648,7 @@ def get_unbuilt_package_levels(
     counter_unbuilt = package_bar.add_subcounter('blue')
     for level_num, level_packages in enumerate(package_levels):
         level_num = level_num + 1
-        package_bar.update(0, level=level_num)
+        package_bar.update(0, name=" " * BAR_PADDING, level=level_num)
         level = set[Pkgbuild]()
         if not level_packages:
             continue
@@ -662,7 +662,7 @@ def get_unbuilt_package_levels(
             build_names.update(package.names())
 
         for package in level_packages:
-            package_bar.update(0, name=package.path)
+            package_bar.update(0, name=ellipsize(package.name, padding=" ", length=BAR_PADDING))
             if (force and package in packages):
                 add_to_level(package, level, 'query match and force=True')
             elif rebuild_dependants and package in dependants:
@@ -717,20 +717,21 @@ def build_packages(
         unit='pkgs',
         total=sum([len(lev) for lev in build_levels]),
         fields={"levels_total": total_levels},
+        enable_rate=False,
     )
     files = []
     updated_repos: set[str] = set()
+    package_bar.update(-1)
     for level, need_build in enumerate(build_levels):
         level = level + 1
-        package_bar.update(incr=0, name=None, level=level)
+        package_bar.update(incr=0, force=True, name=" " * BAR_PADDING, level=level)
         logging.info(f"(Level {level}/{total_levels}) Building {get_pkg_names_str(need_build)}")
         for package in need_build:
-            package_bar.update(incr=0, name=package.path)
+            package_bar.update(force=True, name=ellipsize(package.name, padding=" ", length=BAR_PADDING))
             base = package.pkgbase if isinstance(package, SubPkgbuild) else package
             assert isinstance(base, Pkgbase)
             if package.is_built(arch):
                 logging.info(f"Skipping building {package.name} since it was already built this run as part of pkgbase {base.name}")
-                package_bar.update()
                 continue
             build_package(
                 package,
