@@ -5,9 +5,11 @@ import subprocess
 
 from subprocess import CompletedProcess  # make it easy for users of this module
 from shlex import quote as shell_quote
-from typing import Optional, Union, TypeAlias
+from typing import IO, Optional, Union, TypeAlias
 
 ElevationMethod: TypeAlias = str
+
+FileDescriptor: TypeAlias = Union[int, IO]
 
 # as long as **only** sudo is supported, hardcode the default into ELEVATION_METHOD_DEFAULT.
 # when other methods are added, all mentions of ELEVATION_METHOD_DEFAULT should be replaced by a config key.
@@ -89,8 +91,8 @@ def run_cmd(
     cwd: Optional[str] = None,
     switch_user: Optional[str] = None,
     elevation_method: Optional[ElevationMethod] = None,
-    stdout: Optional[int] = None,
-    stderr=None,
+    stdout: Optional[FileDescriptor] = None,
+    stderr: Optional[FileDescriptor] = None,
 ) -> Union[CompletedProcess, int]:
     "execute `script` as `switch_user`, elevating and su'ing as necessary"
     kwargs: dict = {}
@@ -99,10 +101,12 @@ def run_cmd(
         env_cmd = generate_env_cmd(env)
         kwargs['env'] = env
     if not attach_tty:
-        kwargs |= {'stdout': stdout} if stdout else {'capture_output': capture_output}
-        if stderr:
-            kwargs['stderr'] = stderr
-
+        if (stdout, stderr) == (None, None):
+            kwargs['capture_output'] = capture_output
+        else:
+            for name, fd in {'stdout': stdout, 'stderr': stderr}.items():
+                if fd is not None:
+                    kwargs[name] = fd
     script = flatten_shell_script(script)
     if cwd:
         kwargs['cwd'] = cwd
