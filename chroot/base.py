@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 from glob import glob
 from shutil import rmtree
@@ -31,17 +32,20 @@ class BaseChroot(Chroot):
 
         logging.info(f'Pacstrapping chroot {self.name}: {", ".join(self.base_packages)}')
 
-        result = run_root_cmd([
-            'pacstrap',
-            '-C',
-            pacman_conf_target,
-            '-G',
-            self.path,
-        ] + self.base_packages + [
-            '--needed',
-            '--overwrite=*',
-            '-yyuu',
-        ])
+        result = run_root_cmd(
+            [
+                'pacstrap',
+                '-C',
+                pacman_conf_target,
+                '-G',
+                self.path,
+                *self.base_packages,
+                '--needed',
+                '--overwrite=*',
+                '-yyuu',
+            ],
+            stderr=sys.stdout,
+        )
         if result.returncode != 0:
             raise Exception(f'Failed to initialize chroot "{self.name}"')
         self.initialized = True

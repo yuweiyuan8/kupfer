@@ -2,6 +2,8 @@ import atexit
 import logging
 import os
 import subprocess
+import sys
+
 from copy import deepcopy
 from shlex import quote as shell_quote
 from typing import ClassVar, Iterable, Protocol, Union, Optional, Mapping
@@ -10,7 +12,7 @@ from uuid import uuid4
 from config.state import config
 from constants import Arch, CHROOT_PATHS, GCC_HOSTSPECS
 from distro.distro import get_base_distro, get_kupfer_local, RepoInfo
-from exec.cmd import run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash, generate_cmd_su
+from exec.cmd import FileDescriptor, run_root_cmd, generate_env_cmd, flatten_shell_script, wrap_in_bash, generate_cmd_su
 from exec.file import makedir, root_makedir, root_write_file, write_file
 from generator import generate_makepkg_conf
 from utils import mount, umount, check_findmnt, log_or_exception
@@ -58,7 +60,8 @@ class AbstractChroot(Protocol):
         capture_output: bool,
         cwd: str,
         fail_inactive: bool,
-        stdout: Optional[int],
+        stdout: Optional[FileDescriptor],
+        stderr: Optional[FileDescriptor],
     ):
         pass
 
@@ -222,7 +225,8 @@ class Chroot(AbstractChroot):
         capture_output: bool = False,
         cwd: Optional[str] = None,
         fail_inactive: bool = True,
-        stdout: Optional[int] = None,
+        stdout: Optional[FileDescriptor] = None,
+        stderr: Optional[FileDescriptor] = None,
         switch_user: Optional[str] = None,
     ) -> Union[int, subprocess.CompletedProcess]:
         if not self.active and fail_inactive:
@@ -246,7 +250,7 @@ class Chroot(AbstractChroot):
             inner_cmd = wrap_in_bash(script, flatten_result=False)
         cmd = flatten_shell_script(['chroot', self.path] + env_cmd + inner_cmd, shell_quote_items=True)
 
-        return run_root_cmd(cmd, env=outer_env, attach_tty=attach_tty, capture_output=capture_output, stdout=stdout)
+        return run_root_cmd(cmd, env=outer_env, attach_tty=attach_tty, capture_output=capture_output, stdout=stdout, stderr=stderr)
 
     def mount_pkgbuilds(self, fail_if_mounted: bool = False) -> str:
         return self.mount(
@@ -371,20 +375,22 @@ class Chroot(AbstractChroot):
         packages: list[str],
         refresh: bool = False,
         allow_fail: bool = True,
+        redirect_stderr: bool = True,
     ) -> dict[str, Union[int, subprocess.CompletedProcess]]:
         """Try installing packages, fall back to installing one by one"""
         results = {}
+        stderr = sys.stdout if redirect_stderr else sys.stderr
         if refresh:
-            results['refresh'] = self.run_cmd('pacman -Syy --noconfirm')
+            results['refresh'] = self.run_cmd('pacman -Syy --noconfirm', stderr=stderr)
         cmd = "pacman -S --noconfirm --needed --overwrite='/*'"
-        result = self.run_cmd(f'{cmd} -y {" ".join(packages)}')
+        result = self.run_cmd(f'{cmd} -y {" ".join(packages)}', stderr=stderr)
         assert isinstance(result, subprocess.CompletedProcess)
         results |= {package: result for package in packages}
         if result.returncode != 0 and allow_fail:
             results = {}
             logging.debug('Falling back to serial installation')
             for pkg in set(packages):
-                results[pkg] = self.run_cmd(f'{cmd} {pkg}')
+                results[pkg] = self.run_cmd(f'{cmd} {pkg}', stderr=stderr)
         return results
 
 
