@@ -6,7 +6,7 @@ from glob import glob
 from typing import Iterable, Optional
 
 from config.state import config
-from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_FILE, SRCINFO_METADATA_FILE
+from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_INITIALISED_FILE
 from exec.file import remove_file
 from devices.device import get_profile_device
 from distro.distro import get_kupfer_local
@@ -122,7 +122,7 @@ def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bo
                     alloc_tty=True).check_returncode()
 
 
-CLEAN_LOCATIONS = ['src', 'pkg', SRCINFO_FILE, SRCINFO_METADATA_FILE]
+CLEAN_LOCATIONS = ['src', 'pkg', SRCINFO_INITIALISED_FILE]
 
 
 @cmd_packages.command(name='clean')
