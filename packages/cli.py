@@ -249,6 +249,7 @@ def cmd_check(paths):
             'url': False,
             'provides': is_git_package,
             'conflicts': False,
+            'replaces': False,
             'depends': False,
             'optdepends': False,
             'makedepends': False,
