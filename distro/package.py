@@ -17,6 +17,7 @@ class BinaryPackage(PackageInfo):
     arch: str
     filename: str
     resolved_url: Optional[str]
+    _desc: Optional[dict[str, str]]
 
     def __init__(
         self,
@@ -43,7 +44,15 @@ class BinaryPackage(PackageInfo):
         desc = {}
         for key, value in zip(pruned_lines[0::2], pruned_lines[1::2]):
             desc[key.strip()] = value.strip()
-        return clss(name=desc['NAME'], version=desc['VERSION'], arch=desc['ARCH'], filename=desc['FILENAME'], resolved_url='/'.join([resolved_repo_url, desc['FILENAME']]))
+        p = clss(
+            name=desc['NAME'],
+            version=desc['VERSION'],
+            arch=desc['ARCH'],
+            filename=desc['FILENAME'],
+            resolved_url='/'.join([resolved_repo_url, desc['FILENAME']]),
+        )
+        p._desc = desc
+        return p
 
     def acquire(self) -> str:
         raise NotImplementedError()
