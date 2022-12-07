@@ -8,7 +8,7 @@ from copy import deepcopy
 from urllib.error import HTTPError
 from typing import Iterable, Iterator, Optional
 
-from binfmt import register as binfmt_register
+from binfmt import register as binfmt_register, binfmt_is_registered
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config.state import config
 from exec.cmd import run_cmd, run_root_cmd
@@ -711,11 +711,12 @@ def build_packages_by_paths(
 _qemu_enabled: dict[Arch, bool] = {arch: False for arch in ARCHES}
 
 
-def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = None, lazy: bool = True):
+def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = None, lazy: bool = True, native_chroot: Optional[BuildChroot] = None):
     if arch not in ARCHES:
         raise Exception(f'Unknown architecture "{arch}". Choices: {", ".join(ARCHES)}')
     logging.info('Installing qemu-user (building if necessary)')
-    if lazy and _qemu_enabled[arch]:
+    if lazy and _qemu_enabled[arch] and binfmt_is_registered(arch):
+        _qemu_enabled[arch] = True
         return
     native = config.runtime.arch
     assert native
@@ -732,10 +733,19 @@ def build_enable_qemu_binfmt(arch: Arch, repo: Optional[dict[str, Pkgbuild]] = N
         enable_crossdirect=False,
         enable_ccache=False,
     )
-    if is_wrapped():
-        crossrepo = get_kupfer_local(native, in_chroot=False, scan=True).repos['cross'].packages
-        pkgfiles = [os.path.join(crossrepo[pkg].resolved_url.split('file://')[1]) for pkg in QEMU_BINFMT_PKGS]  # type: ignore
-        run_root_cmd(['pacman', '-U', '--noconfirm', '--needed'] + pkgfiles)
-    if arch != native:
-        binfmt_register(arch)
+    crossrepo = get_kupfer_local(native, in_chroot=False, scan=True).repos['cross'].packages
+    pkgfiles = [os.path.join(crossrepo[pkg].resolved_url.split('file://')[1]) for pkg in QEMU_BINFMT_PKGS]  # type: ignore
+    runcmd = run_root_cmd
+    if native_chroot or not is_wrapped():
+        native_chroot = native_chroot or setup_build_chroot(native)
+        runcmd = native_chroot.run_cmd
+        hostdir = config.get_path('packages')
+        _files = []
+        # convert host paths to in-chroot paths
+        for p in pkgfiles:
+            assert p.startswith(hostdir)
+            _files.append(os.path.join(CHROOT_PATHS['packages'], p[len(hostdir):].lstrip('/')))
+        pkgfiles = _files
+    runcmd(['pacman', '-U', '--noconfirm', '--needed'] + pkgfiles)
+    binfmt_register(arch, chroot=native_chroot)
     _qemu_enabled[arch] = True
