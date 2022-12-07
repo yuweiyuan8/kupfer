@@ -4,15 +4,19 @@ import os
 import logging
 
 from typing import Optional
+
+from chroot.abstract import Chroot
 from constants import Arch, QEMU_ARCHES
 from exec.cmd import run_root_cmd
 from utils import mount
 
 
-def binfmt_info():
+def binfmt_info(chroot: Optional[Chroot] = None):
     # Parse the info file
     full = {}
     info = "/usr/lib/binfmt.d/qemu-static.conf"
+    if chroot:
+        info = chroot.get_path(info)
     logging.debug("parsing: " + info)
     with open(info, "r") as handle:
         for line in handle:
@@ -48,13 +52,33 @@ def is_arch_known(arch: Arch, raise_exception: bool = False, action: Optional[st
     return True
 
 
-def binfmt_is_registered(arch: Arch) -> bool:
+def binfmt_is_registered(arch: Arch, chroot: Optional[Chroot] = None) -> bool:
     is_arch_known(arch, True, 'is_registered')
     qemu_arch = QEMU_ARCHES[arch]
-    return os.path.exists("/proc/sys/fs/binfmt_misc/qemu-" + qemu_arch)
+    path = "/proc/sys/fs/binfmt_misc/qemu-" + qemu_arch
+    binfmt_ensure_mounted(chroot)
+    if chroot:
+        path = chroot.get_path(path)
+    return os.path.exists(path)
 
 
-def register(arch: Arch):
+def binfmt_ensure_mounted(chroot: Optional[Chroot] = None):
+    binfmt_path = '/proc/sys/fs/binfmt_misc'
+    register_path = binfmt_path + '/register'
+    if chroot:
+        binfmt_path = chroot.get_path(binfmt_path)
+        register_path = chroot.get_path(register_path)
+        chroot.activate()
+    if not os.path.exists(register_path):
+        logging.info('mounting binfmt_misc')
+        result = mount('binfmt_misc', binfmt_path, options=[], fs_type='binfmt_misc')
+        if result.returncode != 0:
+            raise Exception(f'Failed mounting binfmt_misc to {binfmt_path}')
+
+
+def register(arch: Arch, chroot: Optional[Chroot] = None):
+    binfmt_path = '/proc/sys/fs/binfmt_misc'
+    register_path = binfmt_path + '/register'
     is_arch_known(arch, True, 'register')
     qemu_arch = QEMU_ARCHES[arch]
     if binfmt_is_registered(arch):
@@ -62,31 +86,34 @@ def register(arch: Arch):
 
     lines = binfmt_info()
 
+    _runcmd = run_root_cmd
+    if chroot:
+        _runcmd = chroot.run_cmd
+        chroot.activate()
+
+    binfmt_ensure_mounted(chroot)
+
     # Build registration string
     # https://en.wikipedia.org/wiki/Binfmt_misc
     # :name:type:offset:magic:mask:interpreter:flags
     info = lines[qemu_arch]
     code = info['line']
-    binfmt = '/proc/sys/fs/binfmt_misc'
-    register = binfmt + '/register'
-    if not os.path.exists(register):
-        logging.info('mounting binfmt_misc')
-        result = mount('binfmt_misc', binfmt, options=[], fs_type='binfmt_misc')
-        if result.returncode != 0:
-            raise Exception(f'Failed mounting binfmt_misc to {binfmt}')
 
     # Register in binfmt_misc
     logging.info(f"Registering qemu binfmt ({arch})")
-    run_root_cmd(f'echo "{code}" > {register} 2>/dev/null')
+    _runcmd(f'echo "{code}" > "{register_path}" 2>/dev/null')  # use path without chroot path prefix
     if not binfmt_is_registered(arch):
         logging.debug(f'binfmt line: {code}')
-        raise Exception(f'Failed to register qemu-user for {arch} with binfmt_misc, {binfmt}/{info["name"]} not found')
+        raise Exception(f'Failed to register qemu-user for {arch} with binfmt_misc, {binfmt_path}/{info["name"]} not found')
 
 
-def unregister(arch):
+def unregister(arch, chroot: Optional[Chroot] = None):
     is_arch_known(arch, True, 'unregister')
     qemu_arch = QEMU_ARCHES[arch]
+    binfmt_ensure_mounted(chroot)
     binfmt_file = "/proc/sys/fs/binfmt_misc/qemu-" + qemu_arch
+    if chroot:
+        binfmt_file = chroot.get_path(binfmt_file)
     if not os.path.exists(binfmt_file):
         return
     logging.info(f"Unregistering qemu binfmt ({arch})")
