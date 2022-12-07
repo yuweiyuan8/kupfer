@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from munch import Munch
 from typing import ClassVar, Optional, Union, Mapping, Any, get_type_hints, get_origin, get_args, Iterable
+from types import UnionType
 
 
 def munchclass(*args, init=False, **kwargs):
@@ -14,7 +15,7 @@ def resolve_type_hint(hint: type) -> Iterable[type]:
     args: Iterable[type] = get_args(hint)
     if origin is Optional:
         args = set(list(args) + [type(None)])
-    if origin in [Union, Optional]:
+    if origin in [Union, UnionType, Optional]:
         results: list[type] = []
         for arg in args:
             results += resolve_type_hint(arg)
