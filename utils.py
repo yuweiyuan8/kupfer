@@ -28,7 +28,7 @@ def programs_available(programs: Union[str, Sequence[str]], lazy: bool = True) -
     return True
 
 
-def umount(dest: str, lazy=False):
+def umount(dest: str, lazy=False) -> subprocess.CompletedProcess:
     return run_root_cmd(
         [
             'umount',
@@ -59,7 +59,7 @@ def mount(src: str, dest: str, options: list[str] = ['bind'], fs_type: Optional[
     return result
 
 
-def check_findmnt(path: str):
+def check_findmnt(path: str) -> subprocess.CompletedProcess:
     result = run_root_cmd(
         [
             'findmnt',
