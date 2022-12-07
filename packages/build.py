@@ -15,8 +15,10 @@ from exec.cmd import run_cmd, run_root_cmd
 from exec.file import makedir, remove_file, symlink
 from chroot.build import get_build_chroot, BuildChroot
 from distro.distro import get_kupfer_https, get_kupfer_local
-from distro.package import RemotePackage
+from distro.package import RemotePackage, LocalPackage
+from distro.repo import LocalRepo
 from wrapper import check_programs_wrap, is_wrapped
+from utils import sha256sum
 
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, Pkgbase, Pkgbuild, SubPkgbuild
 
@@ -314,7 +316,7 @@ def check_package_version_built(
     try_download: bool = False,
     refresh_sources: bool = False,
 ) -> bool:
-    logging.info(f"Checking if {package.name} is built")
+    logging.info(f"Checking if {package.name} is built for architecture {arch}")
 
     if refresh_sources:
         setup_sources(package)
@@ -322,6 +324,7 @@ def check_package_version_built(
     missing = True
     filename = package.get_filename(arch)
     filename_stripped = strip_compression_extension(filename)
+    local_repo: Optional[LocalRepo] = None
     if not filename_stripped.endswith('.pkg.tar'):
         raise Exception(f'{package.name}: stripped filename has unknown extension. {filename}')
     logging.debug(f'Checking if {filename_stripped} is built')
@@ -331,7 +334,43 @@ def check_package_version_built(
         logging.debug(f"{package.name}: any-arch pkg detected")
 
     init_prebuilts(arch)
+    # check if DB entry exists and matches PKGBUILD
+    try:
+        local_distro = get_kupfer_local(arch, in_chroot=False, scan=True)
+        if package.repo not in local_distro.repos:
+            raise Exception(f"Repo {package.repo} not found locally")
+        local_repo = local_distro.repos[package.repo]
+        if not local_repo.scanned:
+            local_repo.scan()
+        if package.name not in local_repo.packages:
+            raise Exception(f"Package '{package.name}' not found")
+        binpkg: LocalPackage = local_repo.packages[package.name]
+        if package.version != binpkg.version:
+            raise Exception(f"Versions differ: PKGBUILD: {package.version}, Repo: {binpkg.version}")
+        if binpkg.arch not in (['any'] if package.arches == ['any'] else [arch]):
+            raise Exception(f"Wrong Architecture: {binpkg.arch}, requested: {arch}")
+        assert binpkg.resolved_url
+        filepath = binpkg.resolved_url.split('file://')[1]
+        if filename_stripped != strip_compression_extension(binpkg.filename):
+            raise Exception(f"Repo entry exists but the filename {binpkg.filename} doesn't match expected {filename_stripped}")
+        if not os.path.exists(filepath):
+            raise Exception(f"Repo entry exists but file {filepath} is missing from disk")
+        assert binpkg._desc
+        if 'SHA256SUM' not in binpkg._desc or not binpkg._desc['SHA256SUM']:
+            raise Exception("Repo entry exists but has no checksum")
+        if sha256sum(filepath) != binpkg._desc['SHA256SUM']:
+            raise Exception("Repo entry exists but checksum doesn't match")
+        missing = False
+        file = filepath
+        filename = binpkg.filename
+        logging.debug(f"{filename} found in {package.repo}.db ({arch}) and checksum matches")
+    except Exception as ex:
+        logging.debug(f"Failed to search local repos for package {package.name}: {ex}")
+
+    # file might be in repo directory but not in DB or checksum mismatch
     for ext in ['xz', 'zst']:
+        if not missing:
+            break
         file = os.path.join(config.get_package_dir(arch), package.repo, f'{filename_stripped}.{ext}')
         if not os.path.exists(file):
             # look for 'any' arch packages in other repos
@@ -354,23 +393,28 @@ def check_package_version_built(
                 downloaded = try_download_package(file, package, arch)
                 if downloaded:
                     file = downloaded
+                    filename = os.path.basename(file)
                     missing = False
+                    logging.info(f"Successfully downloaded {filename} from HTTPS mirror")
         if os.path.exists(file):
             missing = False
             add_file_to_repo(file, repo_name=package.repo, arch=arch, remove_original=False)
-        # copy arch=(any) packages to all arches
-        if any_arch and not missing:
-            # copy to other arches if they don't have it
-            for repo_arch in ARCHES:
-                if repo_arch == arch:
-                    continue  # we already have that
-                copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
-                if not os.path.exists(copy_target):
-                    logging.info(f"copying any-arch package {package.name} to {repo_arch} repo: {copy_target}")
-                    add_file_to_repo(file, package.repo, repo_arch, remove_original=False)
-        if not missing:
-            return True
-    return False
+            assert local_repo
+            local_repo.scan()
+    # copy arch=(any) packages to all arches
+    if any_arch and not missing:
+        # copy to other arches if they don't have it
+        for repo_arch in ARCHES:
+            if repo_arch == arch:
+                continue  # we already have that
+            copy_target = os.path.join(config.get_package_dir(repo_arch), package.repo, filename)
+            if not os.path.exists(copy_target):
+                logging.info(f"copying any-arch package {package.name} to {repo_arch} repo: {copy_target}")
+                add_file_to_repo(file, package.repo, repo_arch, remove_original=False)
+                other_repo = get_kupfer_local(repo_arch, in_chroot=False, scan=False).repos.get(package.repo, None)
+                if other_repo and other_repo.scanned:
+                    other_repo.scan()
+    return not missing
 
 
 def setup_build_chroot(
@@ -594,7 +638,7 @@ def get_unbuilt_package_levels(
     build_names = set[str]()
     build_levels = list[set[Pkgbuild]]()
     includes_dependants = " (includes dependants)" if rebuild_dependants else ""
-    logging.info(f"Checking for unbuilt packages in dependency order{includes_dependants}:\n{get_pkg_levels_str(package_levels)}")
+    logging.info(f"Checking for unbuilt packages ({arch}) in dependency order{includes_dependants}:\n{get_pkg_levels_str(package_levels)}")
     i = 0
     for level_packages in package_levels:
         level = set[Pkgbuild]()
@@ -602,7 +646,7 @@ def get_unbuilt_package_levels(
         def add_to_level(pkg, level, reason=''):
             if reason:
                 reason = f': {reason}'
-            logging.info(f"Level {i}: Adding {package.path}{reason}")
+            logging.info(f"Level {i} ({arch}): Adding {package.path}{reason}")
             level.add(package)
             build_names.update(package.names())
 
@@ -614,7 +658,7 @@ def get_unbuilt_package_levels(
             elif not check_package_version_built(package, arch, try_download=try_download, refresh_sources=refresh_sources):
                 add_to_level(package, level, 'package unbuilt')
             else:
-                logging.info(f"Level {i}: {package.path}: Package doesn't need [re]building")
+                logging.info(f"Level {i}: {package.path} ({arch}): Package doesn't need [re]building")
 
         if level:
             build_levels.append(level)
@@ -653,6 +697,7 @@ def build_packages(
     logging.info(f"Build plan made:\n{get_pkg_levels_str(build_levels)}")
 
     files = []
+    updated_repos: set[str] = set()
     for level, need_build in enumerate(build_levels):
         logging.info(f"(Level {level}) Building {get_pkg_names_str(need_build)}")
         for package in need_build:
@@ -670,7 +715,13 @@ def build_packages(
                 clean_chroot=clean_chroot,
             )
             files += add_package_to_repo(package, arch)
+            updated_repos.add(package.repo)
             base._is_built = True
+    # rescan affected repos
+    local_repos = get_kupfer_local(arch, in_chroot=False, scan=False)
+    for repo_name in updated_repos:
+        assert repo_name in local_repos.repos
+        local_repos.repos[repo_name].scan()
     return files
 
 
