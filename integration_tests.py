@@ -10,12 +10,15 @@ from constants import SRCINFO_METADATA_FILE
 from exec.cmd import run_cmd
 from exec.file import get_temp_dir
 from logger import setup_logging
-from packages.cli import cmd_build, cmd_clean, cmd_update
+from packages.cli import SRCINFO_CACHE_FILES, cmd_build, cmd_clean, cmd_update
 from utils import git_get_branch
 
 tempdir = None
 config.try_load_file()
 setup_logging(True)
+
+PKG_TEST_PATH = 'device/device-sdm845-oneplus-enchilada'
+PKG_TEST_NAME = 'device-sdm845-xiaomi-beryllium-ebbg'
 
 
 @pytest.fixture()
@@ -54,7 +57,7 @@ def test_packages_update(ctx: click.Context):
     for branch, may_fail in branches.items():
         config.file.pkgbuilds.git_branch = branch
         try:
-            ctx.invoke(cmd_update, non_interactive=True, switch_branch=True, discard_changes=True)
+            ctx.invoke(cmd_update, non_interactive=True, switch_branch=True, discard_changes=True, init_caches=False)
         except Exception as ex:
             print(f'may_fail: {may_fail}; Exception: {ex}')
             if not may_fail:
@@ -73,15 +76,20 @@ def test_packages_clean(ctx: click.Context):
     ctx.invoke(cmd_clean, what=['git'], force=True)
 
 
-def build_pkgs(_ctx: click.Context, query: list[str], arch: str = 'aarch64'):
-    _ctx.invoke(cmd_build, paths=query, arch=arch)
+def test_packages_cache_init(ctx: click.Context):
+    ctx.invoke(cmd_update, non_interactive=True, switch_branch=False, discard_changes=False, init_caches=True)
+
+    for f in SRCINFO_CACHE_FILES:
+        assert os.path.exists(os.path.join(config.get_path('pkgbuilds'), PKG_TEST_PATH, f))
+
+
+def build_pkgs(_ctx: click.Context, query: list[str], arch: str = 'aarch64', **kwargs):
+    _ctx.invoke(cmd_build, paths=query, arch=arch, **kwargs)
 
 
 def test_packages_build_by_path(ctx: click.Context):
-    name = 'device/device-sdm845-oneplus-enchilada'
-    build_pkgs(ctx, [name])
+    build_pkgs(ctx, [PKG_TEST_PATH], force=True)
 
 
 def test_split_package_build_by_name(ctx: click.Context):
-    name = 'device-sdm845-xiaomi-beryllium-ebbg'
-    build_pkgs(ctx, [name])
+    build_pkgs(ctx, [PKG_TEST_NAME])

@@ -1,4 +1,5 @@
 import click
+import json
 import logging
 import os
 
@@ -6,17 +7,18 @@ from glob import glob
 from typing import Iterable, Optional
 
 from config.state import config
-from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_INITIALISED_FILE
-from exec.file import remove_file
+from constants import Arch, ARCHES, REPOSITORIES, SRCINFO_FILE, SRCINFO_INITIALISED_FILE, SRCINFO_METADATA_FILE, SRCINFO_TARBALL_FILE, SRCINFO_TARBALL_URL
+from exec.cmd import run_cmd, shell_quote, CompletedProcess
+from exec.file import get_temp_dir, makedir, remove_file
 from devices.device import get_profile_device
-from distro.distro import get_kupfer_local
+from distro.distro import get_kupfer_local, get_kupfer_url
 from distro.package import LocalPackage
 from net.ssh import run_ssh_command, scp_put_files
-from utils import git
+from utils import download_file, git, sha256sum
 from wrapper import check_programs_wrap, enforce_wrap
 
 from .build import build_packages_by_paths
-from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, init_pkgbuilds
+from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, get_pkgbuild_dirs, init_pkgbuilds
 
 
 def build(
@@ -46,31 +48,127 @@ def build(
     )
 
 
+def init_pkgbuild_caches(clean_src_dirs: bool = True, remote_branch: Optional[str] = None):
+
+    def read_srcinitialised_checksum(src_initialised):
+        with open(src_initialised) as fd:
+            d = json.load(fd)
+        if isinstance(d, dict):
+            return d.get('PKGBUILD', '!!!ERROR!!!')
+        raise Exception("JSON content not a dictionary!")
+
+    # get_kupfer_url() resolves repo branch variable in url
+    url = get_kupfer_url(url=SRCINFO_TARBALL_URL, branch=remote_branch)
+    cachetar = os.path.join(config.get_path('packages'), SRCINFO_TARBALL_FILE)
+    makedir(os.path.dirname(cachetar))
+    logging.info(f"Updating PKGBUILD caches from {url}" + (", pruning outdated src/ directories" if clean_src_dirs else ""))
+    updated = download_file(cachetar, url)
+    logging.info("Cache tarball was " + ('downloaded successfully' if updated else 'already up to date'))
+    tmpdir = get_temp_dir()
+    logging.debug(f"Extracting {cachetar} to {tmpdir}")
+    res = run_cmd(['tar', 'xf', cachetar], cwd=tmpdir)
+    assert isinstance(res, CompletedProcess)
+    if res.returncode:
+        raise Exception(f"failed to extract srcinfo cache archive '{cachetar}'")
+    pkgbuild_dirs = get_pkgbuild_dirs()
+    for pkg in pkgbuild_dirs:
+        logging.info(f"{pkg}: analyzing cache")
+        pkgdir = os.path.join(config.get_path('pkgbuilds'), pkg)
+        srcdir = os.path.join(pkgdir, 'src')
+        src_initialised = os.path.join(pkgdir, SRCINFO_INITIALISED_FILE)
+        cachedir = os.path.join(tmpdir, pkg)
+        pkgbuild_checksum = sha256sum(os.path.join(pkgdir, 'PKGBUILD'))
+        copy_files: set[str] = {SRCINFO_FILE, SRCINFO_INITIALISED_FILE, SRCINFO_METADATA_FILE}
+        if os.path.exists(src_initialised):
+            try:
+                if read_srcinitialised_checksum(src_initialised) == pkgbuild_checksum:
+                    copy_files.remove(SRCINFO_INITIALISED_FILE)
+                    for f in copy_files.copy():
+                        fpath = os.path.join(pkgdir, f)
+                        if os.path.exists(fpath):
+                            copy_files.remove(f)
+                    if not copy_files:
+                        logging.info(f"{pkg}: SRCINFO cache already up to date")
+                        continue
+            except Exception as ex:
+                logging.warning(f"{pkg}: Something went wrong parsing {SRCINFO_INITIALISED_FILE}, treating as outdated!:\n{ex}")
+            if clean_src_dirs and os.path.exists(srcdir):
+                logging.info(f"{pkg}: outdated src/ detected, removing")
+                remove_file(srcdir, recursive=True)
+                remove_file(src_initialised)
+        if not os.path.exists(cachedir):
+            logging.info(f"{pkg}: not found in remote repo cache, skipping")
+            continue
+        cache_initialised = os.path.join(cachedir, SRCINFO_INITIALISED_FILE)
+        try:
+            if read_srcinitialised_checksum(cache_initialised) != pkgbuild_checksum:
+                logging.info(f"{pkg}: PKGBUILD checksum differs from remote repo cache, skipping")
+                continue
+        except Exception as ex:
+            logging.warning(f"{pkg}: Failed to parse the remote repo's cached {SRCINFO_INITIALISED_FILE}, skipping!:\n{ex}")
+            continue
+        if not copy_files:
+            continue
+        logging.info(f"{pkg}: Copying srcinfo cache from remote repo")
+        logging.debug(f'{pkg}: copying {copy_files}')
+        copy_files_list = [shell_quote(os.path.join(cachedir, f)) for f in copy_files]
+        res = run_cmd(f"cp {' '.join(copy_files_list)} {shell_quote(pkgdir)}/")
+        assert isinstance(res, CompletedProcess)
+        if res.returncode:
+            raise Exception(f"{pkg}: failed to copy cache contents from {cachedir}")
+
+
+non_interactive_flag = click.option('--non-interactive', is_flag=True)
+init_caches_flag = click.option(
+    '--init-caches/--no-init-caches',
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="Fill PKGBUILDs caches from HTTPS repo where checksums match",
+)
+remove_outdated_src_flag = click.option(
+    '--clean-src-dirs/--no-clean-src-dirs',
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="Remove outdated src/ directories to avoid problems",
+)
+
+
 @click.group(name='packages')
 def cmd_packages():
     """Build and manage packages and PKGBUILDs"""
 
 
-non_interactive_flag = click.option('--non-interactive', is_flag=True)
-
-
 @cmd_packages.command(name='update')
 @non_interactive_flag
-@click.option('--switch-branch', is_flag=True, help="Force the branch to be corrected even in non-interactive mode")
-@click.option('--discard-changes', is_flag=True, help="When switching branches, discard any locally changed conflicting files")
-def cmd_update(non_interactive: bool = False, switch_branch: bool = False, discard_changes: bool = False):
+@init_caches_flag
+@remove_outdated_src_flag
+def cmd_update(
+    non_interactive: bool = False,
+    init_caches: bool = False,
+    clean_src_dirs: bool = True,
+    switch_branch: bool = False,
+    discard_changes: bool = False,
+):
     """Update PKGBUILDs git repo"""
     init_pkgbuilds(interactive=not non_interactive, lazy=False, update=True, switch_branch=switch_branch, discard_changes=discard_changes)
-    logging.info("Refreshing SRCINFO caches")
+    if init_caches:
+        init_pkgbuild_caches(clean_src_dirs=clean_src_dirs)
+    logging.info("Refreshing outdated SRCINFO caches")
     discover_pkgbuilds(lazy=False)
 
 
 @cmd_packages.command(name='init')
 @non_interactive_flag
+@init_caches_flag
+@remove_outdated_src_flag
 @click.option('-u', '--update', is_flag=True, help='Use git pull to update the PKGBUILDs')
-def cmd_init(non_interactive: bool = False, update: bool = False):
+def cmd_init(non_interactive: bool = False, init_caches: bool = True, clean_src_dirs: bool = True, update: bool = False):
     "Ensure PKGBUILDs git repo is checked out locally"
     init_pkgbuilds(interactive=not non_interactive, lazy=False, update=update, switch_branch=False)
+    if init_caches:
+        init_pkgbuild_caches(clean_src_dirs=clean_src_dirs)
 
 
 @cmd_packages.command(name='build')
