@@ -6,3 +6,5 @@ typing_extensions
 coloredlogs
 munch
 setuptools # required by munch
+requests
+python-dateutil

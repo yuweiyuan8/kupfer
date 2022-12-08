@@ -1,12 +1,15 @@
 import atexit
+import datetime
 import grp
 import hashlib
 import logging
 import os
 import pwd
+import requests
 import subprocess
 import tarfile
 
+from dateutil.parser import parse as parsedate
 from shutil import which
 from typing import Generator, IO, Optional, Union, Sequence
 
@@ -132,6 +135,29 @@ def read_files_from_tar(tar_file: str, files: Sequence[str]) -> Generator[tuple[
             fd = index.extractfile(index.getmember(path))
             assert fd
             yield path, fd
+
+
+def download_file(path: str, url: str, update: bool = True):
+    """Download a file over http[s]. With `update`, tries to use mtime timestamps to download only changed files."""
+    url_time = None
+    if os.path.exists(path) and update:
+        headers = requests.head(url).headers
+        if 'last-modified' in headers:
+            url_time = parsedate(headers['last-modified']).astimezone()
+            file_time = datetime.datetime.fromtimestamp(os.path.getmtime(path)).astimezone()
+            if url_time == file_time:
+                logging.debug(f"{path} seems already up to date")
+                return False
+    user_agent = {"User-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:46.0) Gecko/20100101 Firefox/46.0"}
+    download = requests.get(url, headers=user_agent)
+    with open(path, 'wb') as fd:
+        for chunk in download.iter_content(4096):
+            fd.write(chunk)
+    if 'last-modified' in download.headers:
+        url_time = parsedate(download.headers['last-modified']).astimezone()
+        os.utime(path, (datetime.datetime.now().timestamp(), url_time.timestamp()))
+    logging.debug(f"{path} downloaded!")
+    return True
 
 
 # stackoverflow magic from https://stackoverflow.com/a/44873382
