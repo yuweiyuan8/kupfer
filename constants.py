@@ -37,7 +37,8 @@ REPOSITORIES = [
 ]
 
 DEFAULT_PACKAGE_BRANCH = 'dev'
-KUPFER_HTTPS = 'https://gitlab.com/kupfer/packages/prebuilts/-/raw/%branch%/$arch/$repo'
+KUPFER_HTTPS_BASE = 'https://gitlab.com/kupfer/packages/prebuilts/-/raw/%branch%'
+KUPFER_HTTPS = KUPFER_HTTPS_BASE + '/$arch/$repo'
 
 Arch: TypeAlias = str
 ARCHES = [
@@ -159,6 +160,9 @@ MAKEPKG_CMD = [
 SRCINFO_FILE = '.SRCINFO'
 SRCINFO_METADATA_FILE = '.srcinfo_meta.json'
 SRCINFO_INITIALISED_FILE = ".srcinfo_initialised.json"
+
+SRCINFO_TARBALL_FILE = "srcinfos.tar.gz"
+SRCINFO_TARBALL_URL = f'{KUPFER_HTTPS_BASE}/{SRCINFO_TARBALL_FILE}'
 
 FLAVOUR_INFO_FILE = 'flavourinfo.json'
 FLAVOUR_DESCRIPTION_PREFIX = 'kupfer flavour:'
