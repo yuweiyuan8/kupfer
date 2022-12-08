@@ -95,10 +95,16 @@ _kupfer_local = dict[Arch, LocalDistro]()
 _kupfer_local_chroots = dict[Arch, LocalDistro]()
 
 
+def get_kupfer_url(url: str = KUPFER_HTTPS, branch: Optional[str] = None) -> str:
+    """gets the repo URL for `branch`, getting branch from config if `None` is passed."""
+    branch = config.file.pacman.repo_branch if branch is None else branch
+    return url.replace('%branch%', branch)
+
+
 def get_kupfer_https(arch: Arch, scan: bool = False) -> RemoteDistro:
     global _kupfer_https
     if arch not in _kupfer_https or not _kupfer_https[arch]:
-        kupfer = get_kupfer(arch, KUPFER_HTTPS.replace('%branch%', config.file.pacman.repo_branch), scan)
+        kupfer = get_kupfer(arch, get_kupfer_url(), scan)
         assert isinstance(kupfer, RemoteDistro)
         _kupfer_https[arch] = kupfer
     item = _kupfer_https[arch]
