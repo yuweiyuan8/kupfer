@@ -432,24 +432,30 @@ def get_pkgbuild_by_name(name: str, lazy: bool = True):
     return get_pkgbuild_by_name(name=name, lazy=lazy)
 
 
+def get_pkgbuild_dirs(quiet: bool = True, repositories: Optional[list[str]] = None) -> list[str]:
+    """Gets the relative paths to directories containing PKGBUILDs, optionally warns about dirs without a PKGBUILD"""
+    pkgbuilds_dir = config.get_path('pkgbuilds')
+    paths = []
+    for repo in repositories or REPOSITORIES:
+        for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
+            p = os.path.join(repo, dir)
+            if not os.path.exists(os.path.join(pkgbuilds_dir, p, 'PKGBUILD')):
+                if not quiet:
+                    logging.warning(f"{p} doesn't include a PKGBUILD file; skipping")
+                continue
+            paths.append(p)
+    return paths
+
+
 def discover_pkgbuilds(parallel: bool = True, lazy: bool = True, repositories: Optional[list[str]] = None) -> dict[str, Pkgbuild]:
     global _pkgbuilds_cache, _pkgbuilds_scanned
     if lazy and _pkgbuilds_scanned:
         logging.debug("Reusing cached pkgbuilds repo")
         return _pkgbuilds_cache.copy()
     check_programs_wrap(['makepkg'])
-    pkgbuilds_dir = config.get_path('pkgbuilds')
     packages: dict[str, Pkgbuild] = {}
-    paths = []
     init_pkgbuilds(interactive=False)
-    for repo in repositories or REPOSITORIES:
-        for dir in os.listdir(os.path.join(pkgbuilds_dir, repo)):
-            p = os.path.join(repo, dir)
-            if not os.path.exists(os.path.join(pkgbuilds_dir, p, 'PKGBUILD')):
-                logging.warning(f"{p} doesn't include a PKGBUILD file; skipping")
-                continue
-            paths.append(p)
-
+    paths = get_pkgbuild_dirs(quiet=False, repositories=repositories)
     logging.info(f"Discovering PKGBUILDs{f' in repositories: {repositories}' if repositories else ''}")
 
     results = []
