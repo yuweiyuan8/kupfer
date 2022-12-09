@@ -460,13 +460,12 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
         if cache.validate_checksums():
             logging.info(f"{package.path}: Sources already set up.")
             return
-    makepkg_setup = ' '.join(MAKEPKG_CMD + [
+    makepkg_setup = MAKEPKG_CMD + [
         '--nodeps',
         '--nobuild',
         '--noprepare',
         '--skippgpcheck',
-    ])
-    msg = "makepkg sources setup failed; retrying without --holdver"
+    ]
 
     logging.info(f'{package.path}: Getting build chroot for source setup')
     # we need to use a chroot here because makepkg symlinks sources into src/ via an absolute path
@@ -474,11 +473,7 @@ def setup_sources(package: Pkgbuild, lazy: bool = True):
     assert config.runtime.arch
     chroot = setup_build_chroot(config.runtime.arch)
     logging.info(f'{package.path}: Setting up sources with makepkg')
-    result = chroot.run_cmd(
-        f"{makepkg_setup} --holdver || ( echo '{package.path}: {msg}' ; {makepkg_setup} )",
-        cwd=dir,
-        switch_user='kupfer',
-    )
+    result = chroot.run_cmd(makepkg_setup, cwd=dir, switch_user='kupfer')
     assert isinstance(result, subprocess.CompletedProcess)
     if result.returncode != 0:
         raise Exception(f'{package.path}: Failed to setup sources, exit code: {result.returncode}')
