@@ -3,6 +3,7 @@ import os
 import pwd
 import subprocess
 
+from subprocess import CompletedProcess  # make it easy for users of this module
 from shlex import quote as shell_quote
 from typing import Optional, Union, TypeAlias
 
@@ -90,7 +91,7 @@ def run_cmd(
     elevation_method: Optional[ElevationMethod] = None,
     stdout: Optional[int] = None,
     stderr=None,
-) -> Union[subprocess.CompletedProcess, int]:
+) -> Union[CompletedProcess, int]:
     "execute `script` as `switch_user`, elevating and su'ing as necessary"
     kwargs: dict = {}
     env_cmd = []
