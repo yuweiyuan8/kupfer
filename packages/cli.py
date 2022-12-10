@@ -20,6 +20,8 @@ from wrapper import check_programs_wrap, enforce_wrap
 from .build import build_packages_by_paths
 from .pkgbuild import discover_pkgbuilds, filter_pkgbuilds, get_pkgbuild_dirs, init_pkgbuilds
 
+SRCINFO_CACHE_FILES = [SRCINFO_FILE, SRCINFO_INITIALISED_FILE, SRCINFO_METADATA_FILE]
+
 
 def build(
     paths: Iterable[str],
@@ -78,7 +80,7 @@ def init_pkgbuild_caches(clean_src_dirs: bool = True, remote_branch: Optional[st
         src_initialised = os.path.join(pkgdir, SRCINFO_INITIALISED_FILE)
         cachedir = os.path.join(tmpdir, pkg)
         pkgbuild_checksum = sha256sum(os.path.join(pkgdir, 'PKGBUILD'))
-        copy_files: set[str] = {SRCINFO_FILE, SRCINFO_INITIALISED_FILE, SRCINFO_METADATA_FILE}
+        copy_files: set[str] = set(SRCINFO_CACHE_FILES)
         if os.path.exists(src_initialised):
             try:
                 if read_srcinitialised_checksum(src_initialised) == pkgbuild_checksum:
@@ -220,7 +222,7 @@ def cmd_sideload(paths: Iterable[str], arch: Optional[Arch] = None, no_build: bo
                     alloc_tty=True).check_returncode()
 
 
-CLEAN_LOCATIONS = ['src', 'pkg', SRCINFO_INITIALISED_FILE]
+CLEAN_LOCATIONS = ['src', 'pkg', *SRCINFO_CACHE_FILES]
 
 
 @cmd_packages.command(name='clean')
