@@ -135,6 +135,8 @@ remove_outdated_src_flag = click.option(
     show_default=True,
     help="Remove outdated src/ directories to avoid problems",
 )
+switch_branch_flag = click.option('--switch-branch', is_flag=True, help="Force the branch to be corrected even in non-interactive mode")
+discard_changes_flag = click.option('--discard-changes', is_flag=True, help="When switching branches, discard any locally changed conflicting files")
 
 
 @click.group(name='packages')
@@ -145,6 +147,8 @@ def cmd_packages():
 @cmd_packages.command(name='update')
 @non_interactive_flag
 @init_caches_flag
+@switch_branch_flag
+@discard_changes_flag
 @remove_outdated_src_flag
 def cmd_update(
     non_interactive: bool = False,
@@ -164,11 +168,20 @@ def cmd_update(
 @cmd_packages.command(name='init')
 @non_interactive_flag
 @init_caches_flag
+@switch_branch_flag
+@discard_changes_flag
 @remove_outdated_src_flag
 @click.option('-u', '--update', is_flag=True, help='Use git pull to update the PKGBUILDs')
-def cmd_init(non_interactive: bool = False, init_caches: bool = True, clean_src_dirs: bool = True, update: bool = False):
+def cmd_init(
+    non_interactive: bool = False,
+    init_caches: bool = True,
+    clean_src_dirs: bool = True,
+    switch_branch: bool = False,
+    discard_changes: bool = False,
+    update: bool = False,
+):
     "Ensure PKGBUILDs git repo is checked out locally"
-    init_pkgbuilds(interactive=not non_interactive, lazy=False, update=update, switch_branch=False)
+    init_pkgbuilds(interactive=not non_interactive, lazy=False, update=update, switch_branch=switch_branch, discard_changes=discard_changes)
     if init_caches:
         init_pkgbuild_caches(clean_src_dirs=clean_src_dirs)
 

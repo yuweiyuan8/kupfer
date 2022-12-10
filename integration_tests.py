@@ -10,7 +10,7 @@ from constants import SRCINFO_METADATA_FILE
 from exec.cmd import run_cmd
 from exec.file import get_temp_dir
 from logger import setup_logging
-from packages.cli import SRCINFO_CACHE_FILES, cmd_build, cmd_clean, cmd_update
+from packages.cli import SRCINFO_CACHE_FILES, cmd_build, cmd_clean, cmd_init, cmd_update
 from utils import git_get_branch
 
 tempdir = None
@@ -57,7 +57,7 @@ def test_packages_update(ctx: click.Context):
     for branch, may_fail in branches.items():
         config.file.pkgbuilds.git_branch = branch
         try:
-            ctx.invoke(cmd_update, non_interactive=True, switch_branch=True, discard_changes=True, init_caches=False)
+            ctx.invoke(cmd_init, update=True, non_interactive=True, switch_branch=True, discard_changes=True, init_caches=False)
         except Exception as ex:
             print(f'may_fail: {may_fail}; Exception: {ex}')
             if not may_fail:
