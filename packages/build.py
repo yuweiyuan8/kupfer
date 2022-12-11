@@ -698,7 +698,7 @@ def build_packages(
         for package in need_build:
             base = package.pkgbase if isinstance(package, SubPkgbuild) else package
             assert isinstance(base, Pkgbase)
-            if package.is_built():
+            if package.is_built(arch):
                 logging.info(f"Skipping building {package.name} since it was already built this run as part of pkgbase {base.name}")
                 continue
             build_package(
@@ -711,7 +711,9 @@ def build_packages(
             )
             files += add_package_to_repo(package, arch)
             updated_repos.add(package.repo)
-            base._is_built = True
+            for _arch in ['any', arch]:
+                if _arch in base.arches:
+                    base._built_for.add(_arch)
     # rescan affected repos
     local_repos = get_kupfer_local(arch, in_chroot=False, scan=False)
     for repo_name in updated_repos:

@@ -239,16 +239,16 @@ class Pkgbuild(PackageInfo):
             arch = 'any'
         return f'{self.name}-{self.version}-{arch}.pkg.tar.zst'
 
-    def is_built(self) -> bool:
+    def is_built(self, arch: Arch, tolerate_archless: bool = True) -> bool:
         raise NotImplementedError()
 
 
 class Pkgbase(Pkgbuild):
     subpackages: list[SubPkgbuild]
-    _is_built: bool
+    _built_for: set[Arch]
 
     def __init__(self, relative_path: str, subpackages: list[SubPkgbuild] = [], **args):
-        self._is_built = False
+        self._built_for = set()
         self.subpackages = list(subpackages)
         super().__init__(relative_path, **args)
 
@@ -256,7 +256,7 @@ class Pkgbase(Pkgbuild):
         if not isinstance(pkg, Pkgbase):
             raise Exception(f"Tried to update pkgbase {self.name} with non-base pkg {pkg}")
         Pkgbuild.update(self, pkg)
-        self._is_built = pkg._is_built or self._is_built
+        self._built_for.update(pkg._built_for)
         sub_dict = {p.name: p for p in self.subpackages}
         self.subpackages.clear()
         for new_pkg in pkg.subpackages:
@@ -290,8 +290,11 @@ class Pkgbase(Pkgbuild):
             names.update(pkg.names())
         return list(names)
 
-    def is_built(self) -> bool:
-        return self._is_built
+    def is_built(self, arch: Arch, tolerate_archless: bool = True) -> bool:
+        arches = {arch}
+        if tolerate_archless:
+            arches.add('any')
+        return bool(self._built_for.intersection(arches))
 
 
 class SubPkgbuild(Pkgbuild):
@@ -313,8 +316,8 @@ class SubPkgbuild(Pkgbuild):
         assert self.pkgbase
         self.pkgbase.refresh_sources(lazy=lazy)
 
-    def is_built(self) -> bool:
-        return self.pkgbase.is_built()
+    def is_built(self, arch: Arch, tolerate_archless: bool = True) -> bool:
+        return self.pkgbase.is_built(arch)
 
 
 def parse_pkgbuild(
