@@ -658,13 +658,13 @@ def get_unbuilt_package_levels(
         def add_to_level(pkg, level, reason=''):
             if reason:
                 reason = f': {reason}'
-            counter_unbuilt.update()
+            counter_unbuilt.update(force=True)
             logging.info(f"Level {level}/{total_levels} ({arch}): Adding {package.path}{reason}")
             level.add(package)
             build_names.update(package.names())
 
         for package in level_packages:
-            package_bar.update(0, name=ellipsize(package.name, padding=" ", length=BAR_PADDING))
+            package_bar.update(0, force=True, name=ellipsize(package.name, padding=" ", length=BAR_PADDING))
             if (force and package in packages):
                 add_to_level(package, level, 'query match and force=True')
             elif rebuild_dependants and package in dependants:
@@ -673,7 +673,7 @@ def get_unbuilt_package_levels(
                 add_to_level(package, level, 'package unbuilt')
             else:
                 logging.info(f"Level {level_num}/{total_levels} ({arch}): {package.path}: Package doesn't need [re]building")
-                counter_built.update()
+                counter_built.update(force=True)
 
         logging.debug(f'Finished checking level {level_num}/{total_levels} ({arch}). Adding unbuilt pkgs: {get_pkg_names_str(level)}')
         if level:
