@@ -2,3 +2,4 @@ sphinx-click
 myst-parser
 # furo sphinx theme
 furo
+versjon<=2.3.0

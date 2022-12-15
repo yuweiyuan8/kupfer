@@ -1,0 +1,11 @@
+{% if stable and (stable.name|default("")) != current  %}
+{% if page in stable.html_files %}
+{% set stable_path = page_root + docs_path[stable.name] + "/" + page %}
+{% else %}
+{% set stable_path = page_root + docs_path[stable.name] %}
+{% endif %}
+<p class="versjon-{% if is_semver %}old{% else %}dev{% endif %}-warning">
+  <strong>Warning:</strong> These docs are for version <b>{{current}}</b>. The docs for the latest stable version are at
+    <b> <a href="{{ stable_path }}">{{ stable.name }}</a> </b>.
+</p>
+{% endif %}

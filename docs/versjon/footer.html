@@ -1,0 +1,58 @@
+{# FORMAT_VERSION #}
+
+{% macro format_version(version) %}
+{% if page in version.html_files %}
+{% set version_path = page_root + docs_path[version.name] + "/" + page %}
+{% else %}
+{% set version_path = page_root + docs_path[version.name] %}
+{% endif %}
+{% if current == version.name %}
+<strong>
+    <dd><a href="{{ version_path }}">{{ version.name }}</a></dd>
+</strong>
+{% else %}
+<dd><a href="{{ version_path }}">{{ version.name }}</a></dd>
+{% endif %}
+{% endmacro %}
+
+<div id="versjon-overlay">
+    <button type="button" class="versjon">
+        <svg xmlns="http://www.w3.org/2000/svg" id="branch-icon" class="ionicon" viewBox="0 0 512 512">
+            <!-- Taken from Ionic, MIT licensed. Copyright (c) 2015-present Ionic (http://ionic.io/) -->
+            <title>Git Branch</title><circle cx="160" cy="96" r="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><circle cx="160" cy="416" r="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M160 368V144"/><circle cx="352" cy="160" r="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path d="M352 208c0 128-192 48-192 160" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/>
+        </svg>
+        Version: {{current}}
+    </button>
+    <div class="versjon-content">
+        <div class="versjon-content-inner">
+            <dl>
+            <dl>
+                <dt>Branches</dt>
+                {% for version in other %}
+                {{ format_version(version) | indent(16) }}
+                {% endfor %}
+            </dl>
+                <dt>Versions</dt>
+                {% for version in semver %}
+                {{ format_version(version) | indent(16) }}
+                {% endfor %}
+            </dl>
+        </div>
+    </div>
+</div>
+<script>
+    var coll = document.getElementsByClassName("versjon");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function () {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
+    }
+</script>

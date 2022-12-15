@@ -2,3 +2,5 @@
 .doctrees
 html
 source/cli
+checkouts
+versions

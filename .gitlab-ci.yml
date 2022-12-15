@@ -70,12 +70,17 @@ push_docker:
   except:
 
 .docs:
-  image: "${CI_REGISTRY_IMAGE}:dev"
-  before_script:
+  image: "registry.gitlab.com/kupfer/kupferbootstrap:dev"
+  variables:
+    DOCS_SPHINXARGS: '-W'
+    DOCS_MAKE_TARGET: "html"
+    DOCS_MAKE_THREADS: 6
+  before_script: &docs_before_script
     - pip install -r requirements.txt -r docs/requirements.txt
-  script:
-    - (cd docs && SPHINXARGS='-W' make)
-    - mv docs/html public
+  script: &docs_script
+    - '(cd docs && make -j$DOCS_MAKE_THREADS SPHINXARGS="$DOCS_SPHINXARGS" $DOCS_MAKE_TARGET)'
+  after_script:
+    - mv "docs/$DOCS_MAKE_TARGET" public
   artifacts:
     paths:
       - public
@@ -84,10 +89,41 @@ build_docs:
   stage: build
   extends: .docs
   except:
+    refs:
+      - main
+      - dev
+      - docs
+    variables:
+      - '$CI_COMMIT_MESSAGE =~ /ci-kbs-docs-build-full/'
+      - '$KBS_DOCS_FULL_BUILD == "1"'
+
+build_docs_all:
+  stage: build
+  extends: pages
+  resource_group: $CI_COMMIT_SHA
+  script:
+    - (cd docs && make SPHINXARGS="$DOCS_SPHINXARGS -D 'version=$CI_COMMIT_REF_NAME'" && mkdir -p versions && cp -r html versions/$CI_COMMIT_REF_SLUG)
+    - *docs_script
+  only:
+    refs:
+      - branches
+    variables:
+      - '$CI_COMMIT_MESSAGE =~ /ci-kbs-docs-build-full/'
+      - '$KBS_DOCS_FULL_BUILD == "1"'
+      - '$CI_COMMIT_REF_NAME == "docs"'
+  except:
     - main
+    - dev
 
 pages:
   stage: deploy
   extends: .docs
   only:
     - main
+    - dev
+  variables:
+    DOCS_MAKE_TARGET: versions
+  resource_group: docs
+  before_script:
+    - git remote update
+    - *docs_before_script
