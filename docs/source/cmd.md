@@ -11,6 +11,7 @@ only used to trigger builds of the submodule docs!
    :template: command.rst
    :recursive:
 
+    binfmt
     cache
     chroot
     config

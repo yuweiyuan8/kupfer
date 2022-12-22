@@ -8,7 +8,7 @@ from copy import deepcopy
 from urllib.error import HTTPError
 from typing import Iterable, Iterator, Optional
 
-from binfmt import binfmt_register, binfmt_is_registered
+from binfmt.binfmt import binfmt_register, binfmt_is_registered
 from constants import REPOSITORIES, CROSSDIRECT_PKGS, QEMU_BINFMT_PKGS, GCC_HOSTSPECS, ARCHES, Arch, CHROOT_PATHS, MAKEPKG_CMD
 from config.state import config
 from exec.cmd import run_cmd, run_root_cmd

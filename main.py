@@ -9,6 +9,7 @@ from typing import Optional
 from logger import logging, setup_logging, verbose_option
 from wrapper import nowrapper_option, enforce_wrap
 
+from binfmt.cli import cmd_binfmt
 from config.cli import config, config_option, cmd_config
 from packages.cli import cmd_packages
 from flavours.cli import cmd_flavours
@@ -60,6 +61,7 @@ def main():
         exit(1)
 
 
+cli.add_command(cmd_binfmt)
 cli.add_command(cmd_cache)
 cli.add_command(cmd_chroot)
 cli.add_command(cmd_config)
