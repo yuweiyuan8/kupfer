@@ -81,10 +81,10 @@ def register(arch: Arch, chroot: Optional[Chroot] = None):
     register_path = binfmt_path + '/register'
     is_arch_known(arch, True, 'register')
     qemu_arch = QEMU_ARCHES[arch]
-    if binfmt_is_registered(arch):
+    if binfmt_is_registered(arch, chroot=chroot):
         return
 
-    lines = binfmt_info()
+    lines = binfmt_info(chroot=chroot)
 
     _runcmd = run_root_cmd
     if chroot:
@@ -102,7 +102,7 @@ def register(arch: Arch, chroot: Optional[Chroot] = None):
     # Register in binfmt_misc
     logging.info(f"Registering qemu binfmt ({arch})")
     _runcmd(f'echo "{code}" > "{register_path}" 2>/dev/null')  # use path without chroot path prefix
-    if not binfmt_is_registered(arch):
+    if not binfmt_is_registered(arch, chroot=chroot):
         logging.debug(f'binfmt line: {code}')
         raise Exception(f'Failed to register qemu-user for {arch} with binfmt_misc, {binfmt_path}/{info["name"]} not found')
 
