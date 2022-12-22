@@ -36,6 +36,8 @@ def flatten_shell_script(script: Union[list[str], str], shell_quote_items: bool 
         cmds = script
         if shell_quote_items:
             cmds = [shell_quote(i) for i in cmds]
+        else:
+            cmds = [(i if i != '' else '""') for i in cmds]
         script = " ".join(cmds)
     if wrap_in_shell_quote:
         script = shell_quote(script)
