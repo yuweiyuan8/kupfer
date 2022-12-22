@@ -76,7 +76,7 @@ def binfmt_ensure_mounted(chroot: Optional[Chroot] = None):
             raise Exception(f'Failed mounting binfmt_misc to {binfmt_path}')
 
 
-def register(arch: Arch, chroot: Optional[Chroot] = None):
+def binfmt_register(arch: Arch, chroot: Optional[Chroot] = None):
     binfmt_path = '/proc/sys/fs/binfmt_misc'
     register_path = binfmt_path + '/register'
     is_arch_known(arch, True, 'register')
@@ -107,7 +107,7 @@ def register(arch: Arch, chroot: Optional[Chroot] = None):
         raise Exception(f'Failed to register qemu-user for {arch} with binfmt_misc, {binfmt_path}/{info["name"]} not found')
 
 
-def unregister(arch, chroot: Optional[Chroot] = None):
+def binfmt_unregister(arch, chroot: Optional[Chroot] = None):
     is_arch_known(arch, True, 'unregister')
     qemu_arch = QEMU_ARCHES[arch]
     binfmt_ensure_mounted(chroot)
